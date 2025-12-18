@@ -1,6 +1,6 @@
 {
   "name": "@rushstack/heft-rspack-plugin",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Heft plugin for Rspack",
   "repository": {
     "type": "git",
@@ -27,7 +27,7 @@
     "tapable": "2.3.0",
     "@rspack/dev-server": "^1.1.4",
     "watchpack": "2.4.0",
-    "webpack": "~5.98.0"
+    "webpack": "~5.103.0"
   },
   "devDependencies": {
     "@rushstack/heft": "workspace:*",
