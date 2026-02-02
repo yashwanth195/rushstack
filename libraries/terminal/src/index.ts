@@ -39,7 +39,11 @@ export { type ITerminalProvider, TerminalProviderSeverity } from './ITerminalPro
 export { ConsoleTerminalProvider, type IConsoleTerminalProviderOptions } from './ConsoleTerminalProvider';
 export {
   StringBufferTerminalProvider,
-  type IStringBufferOutputOptions
+  type IStringBufferOutputOptions,
+  type IAllStringBufferOutput,
+  type IOutputChunk,
+  type IStringBufferOutputChunksOptions,
+  type TerminalProviderSeverityName
 } from './StringBufferTerminalProvider';
 export {
   PrefixProxyTerminalProvider,

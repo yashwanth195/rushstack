@@ -1,6 +1,33 @@
 # Change Log - @rushstack/package-deps-hash
 
-This log was last generated on Fri, 12 Dec 2025 01:12:05 GMT and should not be manually modified.
+This log was last generated on Fri, 30 Jan 2026 01:16:13 GMT and should not be manually modified.
+
+## 4.6.5
+Fri, 30 Jan 2026 01:16:13 GMT
+
+_Version update only_
+
+## 4.6.4
+Thu, 08 Jan 2026 01:12:30 GMT
+
+_Version update only_
+
+## 4.6.3
+Wed, 07 Jan 2026 01:12:25 GMT
+
+_Version update only_
+
+## 4.6.2
+Mon, 05 Jan 2026 16:12:50 GMT
+
+_Version update only_
+
+## 4.6.1
+Mon, 29 Dec 2025 22:42:58 GMT
+
+### Patches
+
+- Update MINIMUM_GIT_VERSION to 2.35.0 to account for usage of the --format argument with git ls-files
 
 ## 4.6.0
 Fri, 12 Dec 2025 01:12:05 GMT

@@ -26,13 +26,7 @@ describe('ConfigurationFile', () => {
   });
 
   afterEach(() => {
-    expect({
-      log: terminalProvider.getOutput(),
-      warning: terminalProvider.getWarningOutput(),
-      error: terminalProvider.getErrorOutput(),
-      verbose: terminalProvider.getVerboseOutput(),
-      debug: terminalProvider.getDebugOutput()
-    }).toMatchSnapshot();
+    expect(terminalProvider.getAllOutputAsChunks({ asLines: true })).toMatchSnapshot();
   });
 
   describe('A simple config file', () => {

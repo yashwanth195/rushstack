@@ -1,6 +1,30 @@
 # Change Log - @microsoft/api-extractor
 
-This log was last generated on Sat, 06 Dec 2025 01:12:28 GMT and should not be manually modified.
+This log was last generated on Fri, 30 Jan 2026 01:16:12 GMT and should not be manually modified.
+
+## 7.56.0
+Fri, 30 Jan 2026 01:16:12 GMT
+
+### Minor changes
+
+- Fix an issue where destructured parameters produced an incorrect parameter name
+
+## 7.55.5
+Thu, 08 Jan 2026 01:12:30 GMT
+
+### Patches
+
+- Fix missing 'export' keyword for namespace re-exports that produced invalid TypeScript output
+
+## 7.55.4
+Wed, 07 Jan 2026 01:12:24 GMT
+
+_Version update only_
+
+## 7.55.3
+Mon, 05 Jan 2026 16:12:49 GMT
+
+_Version update only_
 
 ## 7.55.2
 Sat, 06 Dec 2025 01:12:28 GMT

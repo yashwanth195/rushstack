@@ -1,6 +1,40 @@
 # Change Log - @rushstack/lockfile-explorer
 
-This log was last generated on Sat, 06 Dec 2025 01:12:28 GMT and should not be manually modified.
+This log was last generated on Fri, 30 Jan 2026 01:16:13 GMT and should not be manually modified.
+
+## 2.1.4
+Fri, 30 Jan 2026 01:16:13 GMT
+
+_Version update only_
+
+## 2.1.3
+Thu, 08 Jan 2026 01:12:30 GMT
+
+_Version update only_
+
+## 2.1.2
+Wed, 07 Jan 2026 01:12:25 GMT
+
+_Version update only_
+
+## 2.1.1
+Mon, 05 Jan 2026 16:12:50 GMT
+
+_Version update only_
+
+## 2.1.0
+Mon, 29 Dec 2025 16:12:51 GMT
+
+### Minor changes
+
+- Bump React to v19.
+
+## 2.0.9
+Wed, 24 Dec 2025 01:12:52 GMT
+
+### Patches
+
+- Use pnpm dependency path implementation from `@rushstack/rush-pnpm-kit-v8`
 
 ## 2.0.8
 Sat, 06 Dec 2025 01:12:28 GMT

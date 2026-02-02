@@ -16,7 +16,7 @@
    * path segment in the "$schema" field for all your Rush config files.  This will ensure
    * correct error-underlining and tab-completion for editors such as VS Code.
    */
-  "rushVersion": "5.162.0",
+  "rushVersion": "5.166.0",
 
   /**
    * The next field selects which package manager should be installed and determines its version.
@@ -26,7 +26,7 @@
    * Specify one of: "pnpmVersion", "npmVersion", or "yarnVersion".  See the Rush documentation
    * for details about these alternatives.
    */
-  "pnpmVersion": "8.15.9",
+  "pnpmVersion": "10.27.0",
 
   // "npmVersion": "6.14.15",
   // "yarnVersion": "1.9.4",
@@ -42,7 +42,7 @@
    * LTS schedule: https://nodejs.org/en/about/releases/
    * LTS versions: https://nodejs.org/en/download/releases/
    */
-  "nodeSupportedVersionRange": ">=18.15.0 <19.0.0 || >=20.9.0 <21.0.0 || >=22.12.0 <23.0.0",
+  "nodeSupportedVersionRange": ">=18.15.0 <19.0.0 || >=20.9.0 <21.0.0 || >=22.12.0 <23.0.0 || >=24.11.1 <25.0.0",
 
   /**
    * If the version check above fails, Rush will display a message showing the current
@@ -467,6 +467,12 @@
       "reviewCategory": "libraries"
     },
     {
+      "packageName": "@rushstack/playwright-browser-tunnel",
+      "projectFolder": "apps/playwright-browser-tunnel",
+      "reviewCategory": "libraries",
+      "shouldPublish": true
+    },
+    {
       "packageName": "@rushstack/rush-themed-ui",
       "projectFolder": "libraries/rush-themed-ui",
       "reviewCategory": "libraries"
@@ -717,20 +723,38 @@
       "shouldPublish": false
     },
     {
-      "packageName": "heft-storybook-react-tutorial",
-      "projectFolder": "build-tests-samples/heft-storybook-react-tutorial",
+      "packageName": "heft-storybook-v6-react-tutorial",
+      "projectFolder": "build-tests-samples/heft-storybook-v6-react-tutorial",
       "reviewCategory": "tests",
       "shouldPublish": false
     },
     {
-      "packageName": "heft-storybook-react-tutorial-storykit",
-      "projectFolder": "build-tests-samples/heft-storybook-react-tutorial-storykit",
+      "packageName": "heft-storybook-v9-react-tutorial",
+      "projectFolder": "build-tests-samples/heft-storybook-v9-react-tutorial",
       "reviewCategory": "tests",
       "shouldPublish": false
     },
     {
-      "packageName": "heft-storybook-react-tutorial-app",
-      "projectFolder": "build-tests-samples/heft-storybook-react-tutorial-app",
+      "packageName": "heft-storybook-v6-react-tutorial-storykit",
+      "projectFolder": "build-tests-samples/heft-storybook-v6-react-tutorial-storykit",
+      "reviewCategory": "tests",
+      "shouldPublish": false
+    },
+    {
+      "packageName": "heft-storybook-v9-react-tutorial-storykit",
+      "projectFolder": "build-tests-samples/heft-storybook-v9-react-tutorial-storykit",
+      "reviewCategory": "tests",
+      "shouldPublish": false
+    },
+    {
+      "packageName": "heft-storybook-v6-react-tutorial-app",
+      "projectFolder": "build-tests-samples/heft-storybook-v6-react-tutorial-app",
+      "reviewCategory": "tests",
+      "shouldPublish": false
+    },
+    {
+      "packageName": "heft-storybook-v9-react-tutorial-app",
+      "projectFolder": "build-tests-samples/heft-storybook-v9-react-tutorial-app",
       "reviewCategory": "tests",
       "shouldPublish": false
     },
@@ -1031,6 +1055,12 @@
     {
       "packageName": "rush-project-change-analyzer-test",
       "projectFolder": "build-tests/rush-project-change-analyzer-test",
+      "reviewCategory": "tests",
+      "shouldPublish": false
+    },
+    {
+      "packageName": "rush-package-manager-integration-test",
+      "projectFolder": "build-tests/rush-package-manager-integration-test",
       "reviewCategory": "tests",
       "shouldPublish": false
     },
@@ -1447,6 +1477,12 @@
       "reviewCategory": "vscode-extensions",
       "tags": ["vsix"]
     },
+    {
+      "packageName": "playwright-local-browser-server",
+      "projectFolder": "vscode-extensions/playwright-local-browser-server-vscode-extension",
+      "reviewCategory": "vscode-extensions",
+      "tags": ["vsix"]
+    },
 
     // "webpack" folder (alphabetical order)
     {
@@ -1537,6 +1573,24 @@
     {
       "packageName": "@rushstack/rush-mcp-docs-plugin",
       "projectFolder": "rush-plugins/rush-mcp-docs-plugin",
+      "reviewCategory": "libraries",
+      "shouldPublish": true
+    },
+    {
+      "packageName": "@rushstack/rush-pnpm-kit-v8",
+      "projectFolder": "libraries/rush-pnpm-kit-v8",
+      "reviewCategory": "libraries",
+      "shouldPublish": true
+    },
+    {
+      "packageName": "@rushstack/rush-pnpm-kit-v9",
+      "projectFolder": "libraries/rush-pnpm-kit-v9",
+      "reviewCategory": "libraries",
+      "shouldPublish": true
+    },
+    {
+      "packageName": "@rushstack/rush-pnpm-kit-v10",
+      "projectFolder": "libraries/rush-pnpm-kit-v10",
       "reviewCategory": "libraries",
       "shouldPublish": true
     }

@@ -1,6 +1,33 @@
 # Change Log - @rushstack/npm-check-fork
 
-This log was last generated on Sat, 06 Dec 2025 01:12:28 GMT and should not be manually modified.
+This log was last generated on Fri, 30 Jan 2026 01:16:13 GMT and should not be manually modified.
+
+## 0.1.11
+Fri, 30 Jan 2026 01:16:13 GMT
+
+_Version update only_
+
+## 0.1.10
+Wed, 28 Jan 2026 01:15:23 GMT
+
+### Patches
+
+- Remove dependencies on throat and package-json
+
+## 0.1.9
+Thu, 08 Jan 2026 01:12:30 GMT
+
+_Version update only_
+
+## 0.1.8
+Wed, 07 Jan 2026 01:12:25 GMT
+
+_Version update only_
+
+## 0.1.7
+Mon, 05 Jan 2026 16:12:50 GMT
+
+_Version update only_
 
 ## 0.1.6
 Sat, 06 Dec 2025 01:12:28 GMT

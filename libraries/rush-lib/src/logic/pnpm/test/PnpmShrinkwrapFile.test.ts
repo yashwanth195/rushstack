@@ -5,6 +5,10 @@ import { type DependencySpecifier, DependencySpecifierType } from '../../Depende
 import { PnpmShrinkwrapFile, parsePnpm9DependencyKey, parsePnpmDependencyKey } from '../PnpmShrinkwrapFile';
 import { RushConfiguration } from '../../../api/RushConfiguration';
 import type { RushConfigurationProject } from '../../../api/RushConfigurationProject';
+import type { Subspace } from '../../../api/Subspace';
+import { StringBufferTerminalProvider, Terminal } from '@rushstack/terminal';
+import { PnpmOptionsConfiguration } from '../PnpmOptionsConfiguration';
+import { AlreadyReportedError } from '@rushstack/node-core-library';
 
 const DEPENDENCY_NAME: string = 'dependency_name';
 const SCOPED_DEPENDENCY_NAME: string = '@scope/dependency_name';
@@ -282,8 +286,12 @@ snapshots:
   bar@1.2.0: {}
 `;
 
-      const shrinkwrapFile1 = PnpmShrinkwrapFile.loadFromString(shrinkwrapContent1);
-      const shrinkwrapFile2 = PnpmShrinkwrapFile.loadFromString(shrinkwrapContent2);
+      const shrinkwrapFile1 = PnpmShrinkwrapFile.loadFromString(shrinkwrapContent1, {
+        subspaceHasNoProjects: false
+      });
+      const shrinkwrapFile2 = PnpmShrinkwrapFile.loadFromString(shrinkwrapContent2, {
+        subspaceHasNoProjects: false
+      });
 
       // Clear cache to ensure fresh computation
       PnpmShrinkwrapFile.clearCache();
@@ -313,7 +321,8 @@ snapshots:
       it('can detect not modified', async () => {
         const project = getMockRushProject();
         const pnpmShrinkwrapFile = getPnpmShrinkwrapFileFromFile(
-          `${__dirname}/yamlFiles/pnpm-lock-v5/not-modified.yaml`
+          `${__dirname}/yamlFiles/pnpm-lock-v5/not-modified.yaml`,
+          project.rushConfiguration.defaultSubspace
         );
         await expect(
           pnpmShrinkwrapFile.isWorkspaceProjectModifiedAsync(
@@ -327,7 +336,8 @@ snapshots:
       it('can detect modified', async () => {
         const project = getMockRushProject();
         const pnpmShrinkwrapFile = getPnpmShrinkwrapFileFromFile(
-          `${__dirname}/yamlFiles/pnpm-lock-v5/modified.yaml`
+          `${__dirname}/yamlFiles/pnpm-lock-v5/modified.yaml`,
+          project.rushConfiguration.defaultSubspace
         );
         await expect(
           pnpmShrinkwrapFile.isWorkspaceProjectModifiedAsync(
@@ -341,7 +351,8 @@ snapshots:
       it('can detect overrides', async () => {
         const project = getMockRushProject();
         const pnpmShrinkwrapFile = getPnpmShrinkwrapFileFromFile(
-          `${__dirname}/yamlFiles/pnpm-lock-v5/overrides-not-modified.yaml`
+          `${__dirname}/yamlFiles/pnpm-lock-v5/overrides-not-modified.yaml`,
+          project.rushConfiguration.defaultSubspace
         );
         await expect(
           pnpmShrinkwrapFile.isWorkspaceProjectModifiedAsync(
@@ -357,7 +368,8 @@ snapshots:
       it('can detect not modified', async () => {
         const project = getMockRushProject();
         const pnpmShrinkwrapFile = getPnpmShrinkwrapFileFromFile(
-          `${__dirname}/yamlFiles/pnpm-lock-v6/not-modified.yaml`
+          `${__dirname}/yamlFiles/pnpm-lock-v6/not-modified.yaml`,
+          project.rushConfiguration.defaultSubspace
         );
         await expect(
           pnpmShrinkwrapFile.isWorkspaceProjectModifiedAsync(
@@ -371,7 +383,8 @@ snapshots:
       it('can detect modified', async () => {
         const project = getMockRushProject();
         const pnpmShrinkwrapFile = getPnpmShrinkwrapFileFromFile(
-          `${__dirname}/yamlFiles/pnpm-lock-v6/modified.yaml`
+          `${__dirname}/yamlFiles/pnpm-lock-v6/modified.yaml`,
+          project.rushConfiguration.defaultSubspace
         );
         await expect(
           pnpmShrinkwrapFile.isWorkspaceProjectModifiedAsync(
@@ -385,7 +398,8 @@ snapshots:
       it('can detect overrides', async () => {
         const project = getMockRushProject();
         const pnpmShrinkwrapFile = getPnpmShrinkwrapFileFromFile(
-          `${__dirname}/yamlFiles/pnpm-lock-v6/overrides-not-modified.yaml`
+          `${__dirname}/yamlFiles/pnpm-lock-v6/overrides-not-modified.yaml`,
+          project.rushConfiguration.defaultSubspace
         );
         await expect(
           pnpmShrinkwrapFile.isWorkspaceProjectModifiedAsync(
@@ -399,7 +413,8 @@ snapshots:
       it('can handle the inconsistent version of a package declared in dependencies and devDependencies', async () => {
         const project = getMockRushProject2();
         const pnpmShrinkwrapFile = getPnpmShrinkwrapFileFromFile(
-          `${__dirname}/yamlFiles/pnpm-lock-v6/inconsistent-dep-devDep.yaml`
+          `${__dirname}/yamlFiles/pnpm-lock-v6/inconsistent-dep-devDep.yaml`,
+          project.rushConfiguration.defaultSubspace
         );
         await expect(
           pnpmShrinkwrapFile.isWorkspaceProjectModifiedAsync(
@@ -415,7 +430,8 @@ snapshots:
       it('can detect not modified', async () => {
         const project = getMockRushProject();
         const pnpmShrinkwrapFile = getPnpmShrinkwrapFileFromFile(
-          `${__dirname}/yamlFiles/pnpm-lock-v9/not-modified.yaml`
+          `${__dirname}/yamlFiles/pnpm-lock-v9/not-modified.yaml`,
+          project.rushConfiguration.defaultSubspace
         );
         await expect(
           pnpmShrinkwrapFile.isWorkspaceProjectModifiedAsync(
@@ -429,7 +445,8 @@ snapshots:
       it('can detect modified', async () => {
         const project = getMockRushProject();
         const pnpmShrinkwrapFile = getPnpmShrinkwrapFileFromFile(
-          `${__dirname}/yamlFiles/pnpm-lock-v9/modified.yaml`
+          `${__dirname}/yamlFiles/pnpm-lock-v9/modified.yaml`,
+          project.rushConfiguration.defaultSubspace
         );
         await expect(
           pnpmShrinkwrapFile.isWorkspaceProjectModifiedAsync(
@@ -443,7 +460,8 @@ snapshots:
       it('can detect overrides', async () => {
         const project = getMockRushProject();
         const pnpmShrinkwrapFile = getPnpmShrinkwrapFileFromFile(
-          `${__dirname}/yamlFiles/pnpm-lock-v9/overrides-not-modified.yaml`
+          `${__dirname}/yamlFiles/pnpm-lock-v9/overrides-not-modified.yaml`,
+          project.rushConfiguration.defaultSubspace
         );
         await expect(
           pnpmShrinkwrapFile.isWorkspaceProjectModifiedAsync(
@@ -457,7 +475,8 @@ snapshots:
       it('can handle the inconsistent version of a package declared in dependencies and devDependencies', async () => {
         const project = getMockRushProject2();
         const pnpmShrinkwrapFile = getPnpmShrinkwrapFileFromFile(
-          `${__dirname}/yamlFiles/pnpm-lock-v9/inconsistent-dep-devDep.yaml`
+          `${__dirname}/yamlFiles/pnpm-lock-v9/inconsistent-dep-devDep.yaml`,
+          project.rushConfiguration.defaultSubspace
         );
         await expect(
           pnpmShrinkwrapFile.isWorkspaceProjectModifiedAsync(
@@ -467,12 +486,76 @@ snapshots:
           )
         ).resolves.toBe(false);
       });
+
+      it('sha1 integrity can be handled when disallowInsecureSha1', async () => {
+        const project = getMockRushProject();
+        const pnpmShrinkwrapFile = getPnpmShrinkwrapFileFromFile(
+          `${__dirname}/yamlFiles/pnpm-lock-v9/sha1-integrity.yaml`,
+          project.rushConfiguration.defaultSubspace
+        );
+
+        const defaultSubspace = project.rushConfiguration.defaultSubspace;
+
+        const mockPnpmOptions = PnpmOptionsConfiguration.loadFromJsonFileOrThrow(
+          `${__dirname}/jsonFiles/pnpm-config-disallow-sha1.json`,
+          defaultSubspace.getSubspaceTempFolderPath()
+        );
+
+        jest.spyOn(defaultSubspace, 'getPnpmOptions').mockReturnValue(mockPnpmOptions);
+
+        const spyTerminalWrite = jest.fn();
+        const terminal = new Terminal({
+          eolCharacter: '\n',
+          supportsColor: false,
+          write: spyTerminalWrite
+        });
+
+        expect(() =>
+          pnpmShrinkwrapFile.validateShrinkwrapAfterUpdate(
+            project.rushConfiguration,
+            project.rushConfiguration.defaultSubspace,
+            terminal
+          )
+        ).not.toThrow();
+        expect(spyTerminalWrite).not.toHaveBeenCalled();
+      });
+
+      it('sha1 integrity can be handled when disallowInsecureSha1', async () => {
+        const project = getMockRushProject();
+        const pnpmShrinkwrapFile = getPnpmShrinkwrapFileFromFile(
+          `${__dirname}/yamlFiles/pnpm-lock-v9/sha1-integrity-non-exempted-package.yaml`,
+          project.rushConfiguration.defaultSubspace
+        );
+
+        const defaultSubspace = project.rushConfiguration.defaultSubspace;
+
+        const mockPnpmOptions = PnpmOptionsConfiguration.loadFromJsonFileOrThrow(
+          `${__dirname}/jsonFiles/pnpm-config-disallow-sha1.json`,
+          defaultSubspace.getSubspaceTempFolderPath()
+        );
+
+        jest.spyOn(defaultSubspace, 'getPnpmOptions').mockReturnValue(mockPnpmOptions);
+
+        const terminalProvider: StringBufferTerminalProvider = new StringBufferTerminalProvider();
+        const terminal = new Terminal(terminalProvider);
+
+        expect(() =>
+          pnpmShrinkwrapFile.validateShrinkwrapAfterUpdate(
+            project.rushConfiguration,
+            project.rushConfiguration.defaultSubspace,
+            terminal
+          )
+        ).toThrowError(AlreadyReportedError);
+        expect(terminalProvider.getAllOutputAsChunks({ asLines: true })).toMatchSnapshot();
+      });
     });
   });
 });
 
-function getPnpmShrinkwrapFileFromFile(filepath: string): PnpmShrinkwrapFile {
-  const pnpmShrinkwrapFile = PnpmShrinkwrapFile.loadFromFile(filepath);
+function getPnpmShrinkwrapFileFromFile(filepath: string, subspace: Subspace): PnpmShrinkwrapFile {
+  const pnpmShrinkwrapFile = PnpmShrinkwrapFile.loadFromFile(filepath, {
+    subspaceHasNoProjects: subspace.getProjects().length === 0
+  });
   if (!pnpmShrinkwrapFile) {
     throw new Error(`Get PnpmShrinkwrapFileFromFile failed from ${filepath}`);
   }

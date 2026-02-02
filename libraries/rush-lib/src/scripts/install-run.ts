@@ -11,6 +11,7 @@ import * as path from 'node:path';
 import type { IPackageJson } from '@rushstack/node-core-library';
 
 import { syncNpmrc, type ILogger } from '../utilities/npmrcUtilities';
+import { escapeArgumentIfNeeded, IS_WINDOWS } from '../utilities/executionUtilities';
 import type { RushConstants } from '../logic/RushConstants';
 
 export const RUSH_JSON_FILENAME: typeof RushConstants.rushJsonFilename = 'rush.json';
@@ -55,7 +56,7 @@ let _npmPath: string | undefined = undefined;
 export function getNpmPath(): string {
   if (!_npmPath) {
     try {
-      if (_isWindows()) {
+      if (IS_WINDOWS) {
         // We're on Windows
         const whereOutput: string = childProcess.execSync('where npm', { stdio: [] }).toString();
         const lines: string[] = whereOutput.split(os.EOL).filter((line) => !!line);
@@ -172,10 +173,11 @@ function _resolvePackageVersion(
         sourceNpmrcFolder,
         targetNpmrcFolder: rushTempFolder,
         logger,
-        supportEnvVarFallbackSyntax: false
+        supportEnvVarFallbackSyntax: false,
+        // Always filter npm-incompatible properties in install-run scripts.
+        // Any warnings will be shown when running Rush commands directly.
+        filterNpmIncompatibleProperties: true
       });
-
-      const npmPath: string = getNpmPath();
 
       // This returns something that looks like:
       // ```
@@ -195,21 +197,15 @@ function _resolvePackageVersion(
       //
       // if only a single version matches.
 
-      const spawnSyncOptions: childProcess.SpawnSyncOptions = {
-        cwd: rushTempFolder,
-        stdio: [],
-        shell: _isWindows()
-      };
-      const platformNpmPath: string = _getPlatformPath(npmPath);
-      const npmVersionSpawnResult: childProcess.SpawnSyncReturns<Buffer | string> = childProcess.spawnSync(
-        platformNpmPath,
+      const npmVersionSpawnResult: childProcess.SpawnSyncReturns<Buffer | string> = _runNpmConfirmSuccess(
         ['view', `${name}@${version}`, 'version', '--no-update-notifier', '--json'],
-        spawnSyncOptions
+        {
+          cwd: rushTempFolder,
+          stdio: [],
+          env: process.env
+        },
+        'npm view'
       );
-
-      if (npmVersionSpawnResult.status !== 0) {
-        throw new Error(`"npm view" returned error code ${npmVersionSpawnResult.status}`);
-      }
 
       const npmViewVersionOutput: string = npmVersionSpawnResult.stdout.toString();
       const parsedVersionOutput: string | string[] = JSON.parse(npmViewVersionOutput);
@@ -356,23 +352,19 @@ function _installPackage(
   packageInstallFolder: string,
   name: string,
   version: string,
-  command: 'install' | 'ci'
+  npmCommand: 'install' | 'ci'
 ): void {
   try {
     logger.info(`Installing ${name}...`);
-    const npmPath: string = getNpmPath();
-    const platformNpmPath: string = _getPlatformPath(npmPath);
-    const result: childProcess.SpawnSyncReturns<Buffer> = childProcess.spawnSync(platformNpmPath, [command], {
-      stdio: 'inherit',
-      cwd: packageInstallFolder,
-      env: process.env,
-      shell: _isWindows()
-    });
-
-    if (result.status !== 0) {
-      throw new Error(`"npm ${command}" encountered an error`);
-    }
-
+    _runNpmConfirmSuccess(
+      [npmCommand],
+      {
+        stdio: 'inherit',
+        cwd: packageInstallFolder,
+        env: process.env
+      },
+      `npm ${npmCommand}`
+    );
     logger.info(`Successfully installed ${name}@${version}`);
   } catch (e) {
     throw new Error(`Unable to install package: ${e}`);
@@ -384,19 +376,14 @@ function _installPackage(
  */
 function _getBinPath(packageInstallFolder: string, binName: string): string {
   const binFolderPath: string = path.resolve(packageInstallFolder, NODE_MODULES_FOLDER_NAME, '.bin');
-  const resolvedBinName: string = _isWindows() ? `${binName}.cmd` : binName;
+  const resolvedBinName: string = IS_WINDOWS ? `${binName}.cmd` : binName;
   return path.resolve(binFolderPath, resolvedBinName);
 }
 
-/**
- * Returns a cross-platform path - windows must enclose any path containing spaces within double quotes.
- */
-function _getPlatformPath(platformPath: string): string {
-  return _isWindows() && platformPath.includes(' ') ? `"${platformPath}"` : platformPath;
-}
-
-function _isWindows(): boolean {
-  return os.platform() === 'win32';
+function _buildShellCommand(command: string, args: string[]): string {
+  const escapedCommand: string = escapeArgumentIfNeeded(command);
+  const escapedArgs: string[] = args.map((arg) => escapeArgumentIfNeeded(arg));
+  return [escapedCommand, ...escapedArgs].join(' ');
 }
 
 /**
@@ -409,6 +396,44 @@ function _writeFlagFile(packageInstallFolder: string): void {
   } catch (e) {
     throw new Error(`Unable to create installed.flag file in ${packageInstallFolder}`);
   }
+}
+
+/**
+ * Run npm under the platform's shell and throw if it didn't succeed.
+ */
+function _runNpmConfirmSuccess(
+  args: string[],
+  options: childProcess.SpawnSyncOptions,
+  commandNameForLogging: string
+): childProcess.SpawnSyncReturns<string | Buffer> {
+  const command: string = getNpmPath();
+  let result: childProcess.SpawnSyncReturns<string | Buffer>;
+  if (IS_WINDOWS) {
+    result = childProcess.spawnSync(_buildShellCommand(command, args), {
+      ...options,
+      shell: true,
+      windowsVerbatimArguments: false
+    });
+  } else {
+    result = childProcess.spawnSync(command, args, options);
+  }
+
+  if (result.status !== 0) {
+    if (!result.status) {
+      // Is status null or undefined?
+      if (result.error) {
+        throw new Error(`"${commandNameForLogging}" failed: ${result.error.message.toString()}`);
+      } else if (result.signal) {
+        throw new Error(`"${commandNameForLogging}" was terminated by signal: ${result.signal}`);
+      } else {
+        throw new Error(`"${commandNameForLogging}" failed for an unknown reason`);
+      }
+    } else {
+      throw new Error(`"${commandNameForLogging}" returned error code ${result.status}`);
+    }
+  }
+
+  return result;
 }
 
 export function installAndRun(
@@ -437,12 +462,15 @@ export function installAndRun(
       sourceNpmrcFolder,
       targetNpmrcFolder: packageInstallFolder,
       logger,
-      supportEnvVarFallbackSyntax: false
+      supportEnvVarFallbackSyntax: false,
+      // Always filter npm-incompatible properties in install-run scripts.
+      // Any warnings will be shown when running Rush commands directly.
+      filterNpmIncompatibleProperties: true
     });
 
     _createPackageJson(packageInstallFolder, packageName, packageVersion);
-    const command: 'install' | 'ci' = lockFilePath ? 'ci' : 'install';
-    _installPackage(logger, packageInstallFolder, packageName, packageVersion, command);
+    const installCommand: 'install' | 'ci' = lockFilePath ? 'ci' : 'install';
+    _installPackage(logger, packageInstallFolder, packageName, packageVersion, installCommand);
     _writeFlagFile(packageInstallFolder);
   }
 
@@ -456,23 +484,30 @@ export function installAndRun(
   // Windows environment variables are case-insensitive.  Instead of using SpawnSyncOptions.env, we need to
   // assign via the process.env proxy to ensure that we append to the right PATH key.
   const originalEnvPath: string = process.env.PATH || '';
-  let result: childProcess.SpawnSyncReturns<Buffer>;
+  let result: childProcess.SpawnSyncReturns<string | Buffer>;
   try {
-    // `npm` bin stubs on Windows are `.cmd` files
-    // Node.js will not directly invoke a `.cmd` file unless `shell` is set to `true`
-    const platformBinPath: string = _getPlatformPath(binPath);
-
     process.env.PATH = [binFolderPath, originalEnvPath].join(path.delimiter);
-    result = childProcess.spawnSync(platformBinPath, packageBinArgs, {
+
+    const spawnOptions: childProcess.SpawnSyncOptions = {
       stdio: 'inherit',
-      windowsVerbatimArguments: false,
-      shell: _isWindows(),
       cwd: process.cwd(),
       env: process.env
-    });
+    };
+    if (IS_WINDOWS) {
+      result = childProcess.spawnSync(_buildShellCommand(binPath, packageBinArgs), {
+        ...spawnOptions,
+        windowsVerbatimArguments: false,
+        // `npm` bin stubs on Windows are `.cmd` files
+        // Node.js will not directly invoke a `.cmd` file unless `shell` is set to `true`
+        shell: true
+      });
+    } else {
+      result = childProcess.spawnSync(binPath, packageBinArgs, spawnOptions);
+    }
   } finally {
     process.env.PATH = originalEnvPath;
   }
+
   if (result.status !== null) {
     return result.status;
   } else {
@@ -501,10 +536,11 @@ function _run(): void {
   ]: string[] = process.argv;
 
   if (!nodePath) {
-    throw new Error('Unexpected exception: could not detect node path');
+    throw new Error('Could not detect node path');
   }
 
-  if (path.basename(scriptPath).toLowerCase() !== 'install-run.js') {
+  const scriptFileName: string = path.basename(scriptPath).toLowerCase();
+  if (scriptFileName !== 'install-run.js' && scriptFileName !== 'install-run') {
     // If install-run.js wasn't directly invoked, don't execute the rest of this function. Return control
     // to the script that (presumably) imported this file
 

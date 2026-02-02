@@ -88,19 +88,22 @@ jest.mock('../Git', () => {
   };
 });
 
-const OriginalPnpmShrinkwrapFile = jest.requireActual('../pnpm/PnpmShrinkwrapFile').PnpmShrinkwrapFile;
+const OriginalPnpmShrinkwrapFile: typeof PnpmShrinkwrapFile = jest.requireActual(
+  '../pnpm/PnpmShrinkwrapFile'
+).PnpmShrinkwrapFile;
 jest.mock('../pnpm/PnpmShrinkwrapFile', () => {
   return {
     PnpmShrinkwrapFile: {
-      loadFromFile: (fullShrinkwrapPath: string): PnpmShrinkwrapFile => {
-        return OriginalPnpmShrinkwrapFile.loadFromString(_getMockedPnpmShrinkwrapFile());
+      loadFromFile: (fullShrinkwrapPath: string, options: ILoadFromFileOptions): PnpmShrinkwrapFile => {
+        return OriginalPnpmShrinkwrapFile.loadFromString(_getMockedPnpmShrinkwrapFile(), options);
       },
-      loadFromString: (text: string): PnpmShrinkwrapFile => {
+      loadFromString: (text: string, options: ILoadFromStringOptions): PnpmShrinkwrapFile => {
         return OriginalPnpmShrinkwrapFile.loadFromString(
           _getMockedPnpmShrinkwrapFile()
             // Change dependencies version
             .replace(/1\.0\.1/g, '1.0.0')
-            .replace(/foo_1_0_1/g, 'foo_1_0_0')
+            .replace(/foo_1_0_1/g, 'foo_1_0_0'),
+          options
         );
       }
     }
@@ -127,7 +130,11 @@ import type {
   GetInputsSnapshotAsyncFn,
   IInputsSnapshotParameters
 } from '../incremental/InputsSnapshot';
-import type { PnpmShrinkwrapFile } from '../pnpm/PnpmShrinkwrapFile';
+import type {
+  ILoadFromFileOptions,
+  ILoadFromStringOptions,
+  PnpmShrinkwrapFile
+} from '../pnpm/PnpmShrinkwrapFile';
 
 describe(ProjectChangeAnalyzer.name, () => {
   beforeEach(() => {
@@ -150,9 +157,7 @@ describe(ProjectChangeAnalyzer.name, () => {
       const snapshot: IInputsSnapshot | undefined = await snapshotProvider?.();
 
       expect(snapshot).toBe(mockSnapshotValue);
-      expect(terminalProvider.getErrorOutput()).toEqual('');
-      expect(terminalProvider.getWarningOutput()).toEqual('');
-
+      expect(terminalProvider.getAllOutput(true)).toEqual({});
       expect(mockSnapshot).toHaveBeenCalledTimes(1);
 
       const mockInput: IInputsSnapshotParameters = mockSnapshot.mock.calls[0][0];
