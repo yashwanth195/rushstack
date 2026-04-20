@@ -1,6 +1,67 @@
 # Change Log - @rushstack/node-core-library
 
-This log was last generated on Sat, 06 Dec 2025 01:12:28 GMT and should not be manually modified.
+This log was last generated on Sat, 18 Apr 2026 00:15:16 GMT and should not be manually modified.
+
+## 5.23.1
+Sat, 18 Apr 2026 00:15:16 GMT
+
+### Patches
+
+- Bump semver.
+
+## 5.23.0
+Fri, 17 Apr 2026 15:14:57 GMT
+
+### Minor changes
+
+- Add two new APIs: `Object.isRecord` asserts if an object is a `Record<string, unknown>` object and `Object.mergeWith` is a customizable deep object merge.
+
+## 5.22.0
+Thu, 09 Apr 2026 00:15:07 GMT
+
+### Minor changes
+
+- Add `FileSystem.createReadStream`, `FileSystem.createWriteStream`, and `FileSystem.createWriteStreamAsync` APIs for creating read and write filesystem streams.
+
+## 5.21.0
+Tue, 31 Mar 2026 15:14:14 GMT
+
+### Minor changes
+
+- Regression risk: This narrows when a lock is considered "dirty". Although the previous behavior was incorrect, the fix could break consumers that implicitly relied on those false positives.
+
+### Patches
+
+- Fix an issue where the LockFile API sometimes incorrectly reported a dirty acquisition, causing Rush autoinstaller failures (GitHub #5684)
+
+## 5.20.3
+Wed, 25 Feb 2026 00:34:29 GMT
+
+### Patches
+
+- Update `ajv` dependency to `~8.18.0` to mitigate CVE-2025-69873.
+
+## 5.20.2
+Tue, 24 Feb 2026 01:13:27 GMT
+
+### Patches
+
+- Fix race condition in FileSystem.create*Link helpers: EEXIST errors that occur after ensureFolder/ensureFolderAsync are now handled consistently with the initial EEXIST handling.
+
+## 5.20.1
+Fri, 20 Feb 2026 00:15:04 GMT
+
+### Patches
+
+- Add `"node"` condition before `"import"` in the `"exports"` map so that Node.js uses the CJS output (which handles extensionless imports), while bundlers still use ESM via `"import"`. Fixes https://github.com/microsoft/rushstack/issues/5644.
+
+## 5.20.0
+Thu, 19 Feb 2026 00:04:53 GMT
+
+### Minor changes
+
+- Normalize package layout. CommonJS is now under `lib-commonjs`, DTS is now under `lib-dts`, and ESM is now under `lib-esm`. Imports to `lib` still work as before, handled by the `"exports"` field in `package.json`.
+- Add a property to the `JsonSchema` validator to control the handling of vendor extension keywords. By default, vendor extension keywords matching the `x-<vendor>-<keyword>` pattern are accepted. Set the new `rejectVendorExtensionKeywords` option to `true` to restore the previous strict behavior.
 
 ## 5.19.1
 Sat, 06 Dec 2025 01:12:28 GMT

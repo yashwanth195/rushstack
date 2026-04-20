@@ -14,6 +14,7 @@ import {
 } from '@rushstack/node-core-library';
 import { Colorize } from '@rushstack/terminal';
 
+import { AsyncRecycler } from '../utilities/AsyncRecycler';
 import { Utilities } from '../utilities/Utilities';
 import type { RushConfiguration } from '../api/RushConfiguration';
 import { PackageJsonEditor } from '../api/PackageJsonEditor';
@@ -131,7 +132,11 @@ export class Autoinstaller {
       if (isLastInstallFlagDirty || lock.dirtyWhenAcquired) {
         if (FileSystem.exists(nodeModulesFolder)) {
           this._logIfConsoleOutputIsNotRestricted('Deleting old files from ' + nodeModulesFolder);
-          FileSystem.ensureEmptyFolder(nodeModulesFolder);
+          const recycler: AsyncRecycler = new AsyncRecycler(
+            `${this._rushConfiguration.commonTempFolder}/${RushConstants.rushRecyclerFolderName}`
+          );
+          recycler.moveFolder(nodeModulesFolder);
+          await recycler.startDeleteAllAsync();
         }
 
         // Copy: .../common/autoinstallers/my-task/.npmrc
@@ -210,7 +215,7 @@ export class Autoinstaller {
     }
 
     // Detect a common mistake where PNPM prints "Already up-to-date" without creating a shrinkwrap file
-    const packageJsonEditor: PackageJsonEditor = PackageJsonEditor.load(this.packageJsonPath);
+    const packageJsonEditor: PackageJsonEditor = await PackageJsonEditor.loadAsync(this.packageJsonPath);
     if (packageJsonEditor.dependencyList.length === 0) {
       throw new Error(
         'You must add at least one dependency to the autoinstaller package' +

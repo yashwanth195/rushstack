@@ -1,6 +1,169 @@
 # Change Log - @rushstack/heft-web-rig
 
-This log was last generated on Fri, 30 Jan 2026 01:16:13 GMT and should not be manually modified.
+This log was last generated on Mon, 20 Apr 2026 15:15:24 GMT and should not be manually modified.
+
+## 1.4.18
+Mon, 20 Apr 2026 15:15:24 GMT
+
+_Version update only_
+
+## 1.4.17
+Sat, 18 Apr 2026 03:47:10 GMT
+
+_Version update only_
+
+## 1.4.16
+Sat, 18 Apr 2026 00:15:17 GMT
+
+_Version update only_
+
+## 1.4.15
+Fri, 17 Apr 2026 15:14:57 GMT
+
+_Version update only_
+
+## 1.4.14
+Wed, 15 Apr 2026 17:59:12 GMT
+
+### Patches
+
+- Include `es2015.symbol.wellknown` in the default included `lib`s in `tsconfig-base.json`.
+- Replace the `@types/heft-jest` types package with `@types/jest`. The `@types/jest` package now correctly includes the mocking typings.
+
+## 1.4.13
+Wed, 15 Apr 2026 15:14:48 GMT
+
+### Patches
+
+- Include `temp/image-typings` in the build clean folders.
+
+## 1.4.12
+Tue, 14 Apr 2026 01:25:46 GMT
+
+_Version update only_
+
+## 1.4.11
+Sat, 11 Apr 2026 00:31:13 GMT
+
+_Version update only_
+
+## 1.4.10
+Fri, 10 Apr 2026 22:46:34 GMT
+
+_Version update only_
+
+## 1.4.9
+Thu, 09 Apr 2026 23:00:20 GMT
+
+_Version update only_
+
+## 1.4.8
+Thu, 09 Apr 2026 00:15:07 GMT
+
+_Version update only_
+
+## 1.4.7
+Sat, 04 Apr 2026 00:14:00 GMT
+
+_Version update only_
+
+## 1.4.6
+Thu, 02 Apr 2026 00:14:38 GMT
+
+_Version update only_
+
+## 1.4.5
+Wed, 01 Apr 2026 15:13:38 GMT
+
+_Version update only_
+
+## 1.4.4
+Tue, 31 Mar 2026 15:14:15 GMT
+
+_Version update only_
+
+## 1.4.3
+Mon, 09 Mar 2026 15:14:08 GMT
+
+_Version update only_
+
+## 1.4.2
+Wed, 25 Feb 2026 21:39:42 GMT
+
+_Version update only_
+
+## 1.4.1
+Wed, 25 Feb 2026 00:34:29 GMT
+
+_Version update only_
+
+## 1.4.0
+Tue, 24 Feb 2026 02:08:44 GMT
+
+### Minor changes
+
+- Add `@rushstack/heft-static-asset-typings-plugin` to the `app` and `library` profiles, generating `.d.ts` typings for static asset files (images and text). This enables type-safe asset imports in TypeScript without needing `allowArbitraryExtensions` or `require()` calls. Also add `.webp` and `.avif` to the webpack asset resource rule.
+
+## 1.3.5
+Tue, 24 Feb 2026 01:13:27 GMT
+
+_Version update only_
+
+## 1.3.4
+Mon, 23 Feb 2026 00:42:21 GMT
+
+_Version update only_
+
+## 1.3.3
+Fri, 20 Feb 2026 16:14:49 GMT
+
+_Version update only_
+
+## 1.3.2
+Fri, 20 Feb 2026 00:15:04 GMT
+
+_Version update only_
+
+## 1.3.1
+Thu, 19 Feb 2026 00:04:52 GMT
+
+_Version update only_
+
+## 1.3.0
+Thu, 12 Feb 2026 23:00:53 GMT
+
+### Minor changes
+
+- Bump the `webpack` dependency to `~5.105.2`.
+
+## 1.2.9
+Sat, 07 Feb 2026 01:13:26 GMT
+
+_Version update only_
+
+## 1.2.8
+Thu, 05 Feb 2026 01:54:04 GMT
+
+### Patches
+
+- Bump `webpack` dependency version to `~5.105.0`
+
+## 1.2.7
+Thu, 05 Feb 2026 00:23:59 GMT
+
+### Patches
+
+- Bump `webpack` dependency version to `~5.104.1`
+
+## 1.2.6
+Wed, 04 Feb 2026 20:42:47 GMT
+
+_Version update only_
+
+## 1.2.5
+Wed, 04 Feb 2026 16:13:27 GMT
+
+_Version update only_
 
 ## 1.2.4
 Fri, 30 Jan 2026 01:16:13 GMT

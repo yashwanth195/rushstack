@@ -137,9 +137,13 @@ export class CommonVersionsConfiguration {
     getAllPreferredVersions(): Map<string, string>;
     getPreferredVersionsHash(): string;
     readonly implicitlyPreferredVersions: boolean | undefined;
+    // @deprecated (undocumented)
     static loadFromFile(jsonFilePath: string, rushConfiguration?: RushConfiguration): CommonVersionsConfiguration;
+    static loadFromFileAsync(jsonFilePath: string, rushConfiguration?: RushConfiguration): Promise<CommonVersionsConfiguration>;
     readonly preferredVersions: Map<string, string>;
+    // @deprecated (undocumented)
     save(): boolean;
+    saveAsync(): Promise<boolean>;
 }
 
 export { CredentialCache }
@@ -239,6 +243,7 @@ export class EnvironmentConfiguration {
     static parseBooleanEnvironmentVariable(name: string, value: string | undefined): boolean | undefined;
     static get pnpmStorePathOverride(): string | undefined;
     static get pnpmVerifyStoreIntegrity(): boolean | undefined;
+    static get quietMode(): boolean;
     static reset(): void;
     static get rushGlobalFolderOverride(): string | undefined;
     static get rushTempFolderOverride(): string | undefined;
@@ -273,6 +278,7 @@ export const EnvironmentVariableNames: {
     readonly _RUSH_LIB_PATH: "_RUSH_LIB_PATH";
     readonly RUSH_INVOKED_FOLDER: "RUSH_INVOKED_FOLDER";
     readonly RUSH_INVOKED_ARGS: "RUSH_INVOKED_ARGS";
+    readonly RUSH_QUIET_MODE: "RUSH_QUIET_MODE";
 };
 
 // @beta
@@ -471,9 +477,11 @@ export interface IExperimentsJson {
     forbidPhantomResolvableNodeModulesFolders?: boolean;
     generateProjectImpactGraphDuringRushUpdate?: boolean;
     noChmodFieldInTarHeaderNormalization?: boolean;
+    omitAppleDoubleFilesFromBuildCache?: boolean;
     omitImportersFromPreventManualShrinkwrapChanges?: boolean;
     printEventHooksOutputToConsole?: boolean;
     rushAlerts?: boolean;
+    strictChangefileValidation?: boolean;
     useIPCScriptsInWatchMode?: boolean;
     usePnpmFrozenLockfileForRushInstall?: boolean;
     usePnpmLockfileOnlyThenFrozenLockfileForRushUpdate?: boolean;
@@ -497,6 +505,7 @@ export interface IGenerateCacheEntryIdOptions {
 // @beta (undocumented)
 export interface IGetChangedProjectsOptions {
     enableFiltering: boolean;
+    excludeVersionOnlyChanges?: boolean;
     includeExternalDependencies: boolean;
     // (undocumented)
     shouldFetch?: boolean;
@@ -510,6 +519,8 @@ export interface IGetChangedProjectsOptions {
 
 // @beta
 export interface IGlobalCommand extends IRushCommand {
+    getCustomParametersByLongName<TParameter extends CommandLineParameter>(longName: string): TParameter;
+    setHandled(): void;
 }
 
 // @public
@@ -582,6 +593,7 @@ export interface _INpmOptionsJson extends IPackageManagerOptionsJsonBase {
 // @internal (undocumented)
 export interface _IOperationBuildCacheOptions {
     buildCacheConfiguration: BuildCacheConfiguration;
+    excludeAppleDoubleFiles: boolean;
     terminal: ITerminal;
 }
 
@@ -666,13 +678,14 @@ export interface IOperationSettings {
     allowCobuildWithoutCache?: boolean;
     dependsOnAdditionalFiles?: string[];
     dependsOnEnvVars?: string[];
+    dependsOnNodeVersion?: boolean | NodeVersionGranularity;
     disableBuildCacheForOperation?: boolean;
     ignoreChangedProjectsOnlyFlag?: boolean;
     operationName: string;
     outputFolderNames?: string[];
     parameterNamesToIgnore?: string[];
     sharding?: IRushPhaseSharding;
-    weight?: number;
+    weight?: number | `${number}%`;
 }
 
 // @internal (undocumented)
@@ -748,13 +761,18 @@ export interface _IPnpmOptionsJson extends IPackageManagerOptionsJsonBase {
     globalPackageExtensions?: Record<string, IPnpmPackageExtension>;
     globalPatchedDependencies?: Record<string, string>;
     globalPeerDependencyRules?: IPnpmPeerDependencyRules;
+    // @deprecated (undocumented)
     minimumReleaseAge?: number;
     minimumReleaseAgeExclude?: string[];
+    minimumReleaseAgeMinutes?: number;
     pnpmLockfilePolicies?: IPnpmLockfilePolicies;
     pnpmStore?: PnpmStoreLocation;
     preventManualShrinkwrapChanges?: boolean;
     resolutionMode?: PnpmResolutionMode;
     strictPeerDependencies?: boolean;
+    trustPolicy?: PnpmTrustPolicy;
+    trustPolicyExclude?: string[];
+    trustPolicyIgnoreAfterMinutes?: number;
     unsupportedPackageJsonSettings?: unknown;
     useWorkspaces?: boolean;
 }
@@ -958,6 +976,9 @@ export class LockStepVersionPolicy extends VersionPolicy {
 
 export { LookupByPath }
 
+// @alpha
+export type NodeVersionGranularity = 'major' | 'minor' | 'patch';
+
 // @public
 export class NpmOptionsConfiguration extends PackageManagerOptionsConfigurationBase {
     // @internal
@@ -1086,15 +1107,19 @@ export class PackageJsonEditor {
     readonly filePath: string;
     // (undocumented)
     static fromObject(object: IPackageJson, filename: string): PackageJsonEditor;
-    // (undocumented)
+    // @deprecated (undocumented)
     static load(filePath: string): PackageJsonEditor;
+    // (undocumented)
+    static loadAsync(filePath: string): Promise<PackageJsonEditor>;
     // (undocumented)
     get name(): string;
     // (undocumented)
     removeDependency(packageName: string, dependencyType: DependencyType): void;
     get resolutionsList(): ReadonlyArray<PackageJsonDependency>;
-    // (undocumented)
+    // @deprecated (undocumented)
     saveIfModified(): boolean;
+    // (undocumented)
+    saveIfModifiedAsync(): Promise<boolean>;
     saveToObject(): IPackageJson;
     // (undocumented)
     tryGetDependency(packageName: string): PackageJsonDependency | undefined;
@@ -1167,14 +1192,19 @@ export class PnpmOptionsConfiguration extends PackageManagerOptionsConfiguration
     static loadFromJsonFileOrThrow(jsonFilePath: string, commonTempFolder: string): PnpmOptionsConfiguration;
     // @internal (undocumented)
     static loadFromJsonObject(json: _IPnpmOptionsJson, commonTempFolder: string): PnpmOptionsConfiguration;
-    readonly minimumReleaseAge: number | undefined;
+    // @deprecated (undocumented)
+    get minimumReleaseAge(): number | undefined;
     readonly minimumReleaseAgeExclude: string[] | undefined;
+    readonly minimumReleaseAgeMinutes: number | undefined;
     readonly pnpmLockfilePolicies: IPnpmLockfilePolicies | undefined;
     readonly pnpmStore: PnpmStoreLocation;
     readonly pnpmStorePath: string;
     readonly preventManualShrinkwrapChanges: boolean;
     readonly resolutionMode: PnpmResolutionMode | undefined;
     readonly strictPeerDependencies: boolean;
+    readonly trustPolicy: PnpmTrustPolicy | undefined;
+    readonly trustPolicyExclude: string[] | undefined;
+    readonly trustPolicyIgnoreAfterMinutes: number | undefined;
     readonly unsupportedPackageJsonSettings: unknown | undefined;
     updateGlobalOnlyBuiltDependencies(onlyBuiltDependencies: string[] | undefined): void;
     updateGlobalPatchedDependencies(patchedDependencies: Record<string, string> | undefined): void;
@@ -1189,6 +1219,9 @@ export type PnpmStoreLocation = 'local' | 'global';
 
 // @public @deprecated (undocumented)
 export type PnpmStoreOptions = PnpmStoreLocation;
+
+// @public
+export type PnpmTrustPolicy = 'no-downgrade' | 'off';
 
 // @beta (undocumented)
 export class ProjectChangeAnalyzer {
@@ -1425,6 +1458,7 @@ export class RushConstants {
     static readonly defaultWatchDebounceMs: 1000;
     static readonly experimentsFilename: 'experiments.json';
     static readonly globalCommandKind: 'global';
+    static readonly globalPluginCommandKind: 'globalPlugin';
     static readonly hashDelimiter: '|';
     static readonly lastLinkFlagFilename: 'last-link';
     static readonly mergeQueueIgnoreFileName: '.mergequeueignore';
@@ -1493,7 +1527,7 @@ export class RushLifecycleHooks {
     variant: string | undefined
     ]>;
     readonly beforeInstall: AsyncSeriesHook<[
-    command: IGlobalCommand,
+    command: IRushCommand,
     subspace: Subspace,
     variant: string | undefined
     ]>;
@@ -1636,8 +1670,12 @@ export abstract class VersionPolicy {
     // @internal
     static load(versionPolicyJson: IVersionPolicyJson): VersionPolicy | undefined;
     get policyName(): string;
+    // @deprecated (undocumented)
     setDependenciesBeforeCommit(packageName: string, configuration: RushConfiguration): void;
+    setDependenciesBeforeCommitAsync(packageName: string, configuration: RushConfiguration): Promise<void>;
+    // @deprecated (undocumented)
     setDependenciesBeforePublish(packageName: string, configuration: RushConfiguration): void;
+    setDependenciesBeforePublishAsync(packageName: string, configuration: RushConfiguration): Promise<void>;
     abstract validate(versionString: string, packageName: string): void;
 }
 

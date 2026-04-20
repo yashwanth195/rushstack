@@ -1,6 +1,6 @@
 {
   "name": "@rushstack/playwright-browser-tunnel",
-  "version": "0.2.0",
+  "version": "0.3.18",
   "description": "Run a remote Playwright Browser Tunnel. Useful in remote development environments.",
   "license": "MIT",
   "repository": {
@@ -8,7 +8,31 @@
     "url": "https://github.com/microsoft/rushstack.git",
     "directory": "apps/playwright-browser-tunnel"
   },
-  "main": "lib/index.js",
+  "main": "./lib-commonjs/index.js",
+  "module": "./lib-esm/index.js",
+  "types": "./lib-dts/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib-dts/index.d.ts",
+      "node": "./lib-commonjs/index.js",
+      "import": "./lib-esm/index.js",
+      "require": "./lib-commonjs/index.js"
+    },
+    "./lib/*": {
+      "types": "./lib-dts/*.d.ts",
+      "node": "./lib-commonjs/*.js",
+      "import": "./lib-esm/*.js",
+      "require": "./lib-commonjs/*.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "typesVersions": {
+    "*": {
+      "lib/*": [
+        "lib-dts/*"
+      ]
+    }
+  },
   "engines": {
     "node": ">=20.0.0"
   },
@@ -24,7 +48,6 @@
     "@rushstack/terminal": "workspace:*",
     "@rushstack/ts-command-line": "workspace:*",
     "string-argv": "~0.3.1",
-    "semver": "~7.5.4",
     "ws": "~8.14.1",
     "playwright": "1.56.1"
   },
@@ -32,7 +55,7 @@
     "@rushstack/heft": "workspace:*",
     "eslint": "~9.37.0",
     "local-node-rig": "workspace:*",
-    "@types/semver": "7.5.0",
+    "@types/semver": "7.7.1",
     "@types/ws": "8.5.5",
     "playwright-core": "~1.56.1",
     "@playwright/test": "~1.56.1",
@@ -40,5 +63,6 @@
   },
   "peerDependencies": {
     "playwright-core": "~1.56.1"
-  }
+  },
+  "sideEffects": false
 }

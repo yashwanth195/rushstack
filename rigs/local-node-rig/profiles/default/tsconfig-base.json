@@ -8,10 +8,11 @@
     "isolatedModules": true,
     "target": "es2018",
 
-    "outDir": "${configDir}/lib",
+    "outDir": "${configDir}/lib-commonjs",
+    "declarationDir": "${configDir}/lib-dts",
     "rootDir": "${configDir}/src",
 
-    "types": ["heft-jest", "node"],
+    "types": ["jest", "node"],
     "typeRoots": ["${configDir}/node_modules/@types", "../../node_modules/@types"]
   },
   "include": ["${configDir}/src/**/*.ts", "${configDir}/src/**/*.tsx"]

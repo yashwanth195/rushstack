@@ -35,6 +35,16 @@ export type PnpmStoreOptions = PnpmStoreLocation;
 export type PnpmResolutionMode = 'highest' | 'time-based' | 'lowest-direct';
 
 /**
+ * Possible values for the `trustPolicy` setting in Rush's pnpm-config.json file.
+ * @remarks
+ * These values correspond to PNPM's `trust-policy` setting, which is documented here:
+ * {@link https://pnpm.io/settings#trustpolicy}
+ *
+ * @public
+ */
+export type PnpmTrustPolicy = 'no-downgrade' | 'off';
+
+/**
  * Possible values for the `pnpmLockfilePolicies` setting in Rush's pnpm-config.json file.
  * @public
  */
@@ -143,13 +153,29 @@ export interface IPnpmOptionsJson extends IPackageManagerOptionsJsonBase {
    */
   autoInstallPeers?: boolean;
   /**
-   * {@inheritDoc PnpmOptionsConfiguration.minimumReleaseAge}
+   * {@inheritDoc PnpmOptionsConfiguration.minimumReleaseAgeMinutes}
+   */
+  minimumReleaseAgeMinutes?: number;
+  /**
+   * @deprecated Use `minimumReleaseAgeMinutes` instead.
    */
   minimumReleaseAge?: number;
   /**
    * {@inheritDoc PnpmOptionsConfiguration.minimumReleaseAgeExclude}
    */
   minimumReleaseAgeExclude?: string[];
+  /**
+   * {@inheritDoc PnpmOptionsConfiguration.trustPolicy}
+   */
+  trustPolicy?: PnpmTrustPolicy;
+  /**
+   * {@inheritDoc PnpmOptionsConfiguration.trustPolicyExclude}
+   */
+  trustPolicyExclude?: string[];
+  /**
+   * {@inheritDoc PnpmOptionsConfiguration.trustPolicyIgnoreAfterMinutes}
+   */
+  trustPolicyIgnoreAfterMinutes?: number;
   /**
    * {@inheritDoc PnpmOptionsConfiguration.alwaysInjectDependenciesFromOtherSubspaces}
    */
@@ -286,11 +312,18 @@ export class PnpmOptionsConfiguration extends PackageManagerOptionsConfiguration
    *
    * The default value is 0 (disabled).
    */
-  public readonly minimumReleaseAge: number | undefined;
+  public readonly minimumReleaseAgeMinutes: number | undefined;
+
+  /**
+   * @deprecated Use {@link PnpmOptionsConfiguration.minimumReleaseAgeMinutes} instead.
+   */
+  public get minimumReleaseAge(): number | undefined {
+    return this.minimumReleaseAgeMinutes;
+  }
 
   /**
    * List of package names or patterns that are excluded from the minimumReleaseAge check.
-   * These packages will always install the newest version immediately, even if minimumReleaseAge is set.
+   * These packages will always install the newest version immediately, even if minimumReleaseAgeMinutes is set.
    *
    * @remarks
    * (SUPPORTED ONLY IN PNPM 10.16.0 AND NEWER)
@@ -300,6 +333,42 @@ export class PnpmOptionsConfiguration extends PackageManagerOptionsConfiguration
    * Example: ["webpack", "react", "\@myorg/*"]
    */
   public readonly minimumReleaseAgeExclude: string[] | undefined;
+
+  /**
+   * The trust policy controls whether pnpm should block installation of package versions where the
+   * trust level has decreased (e.g., a package previously published with provenance is now published
+   * without it). Setting this to `"no-downgrade"` enables the protection.
+   *
+   * @remarks
+   * (SUPPORTED ONLY IN PNPM 10.21.0 AND NEWER)
+   *
+   * PNPM documentation: https://pnpm.io/settings#trustpolicy
+   */
+  public readonly trustPolicy: PnpmTrustPolicy | undefined;
+
+  /**
+   * List of package names or patterns that are excluded from the trust policy check.
+   * These packages will be allowed to install even if their trust level has decreased.
+   *
+   * @remarks
+   * (SUPPORTED ONLY IN PNPM 10.22.0 AND NEWER)
+   *
+   * PNPM documentation: https://pnpm.io/settings#trustpolicyexclude
+   *
+   * Example: ["webpack", "react", "\@myorg/*"]
+   */
+  public readonly trustPolicyExclude: string[] | undefined;
+
+  /**
+   * The number of minutes after which pnpm will ignore trust level downgrades. Packages published
+   * longer ago than this threshold will not be blocked even if their trust level has decreased.
+   *
+   * @remarks
+   * (SUPPORTED ONLY IN PNPM 10.27.0 AND NEWER)
+   *
+   * PNPM documentation: https://pnpm.io/settings#trustpolicyignoreafter
+   */
+  public readonly trustPolicyIgnoreAfterMinutes: number | undefined;
 
   /**
    * If true, then `rush update` add injected install options for all cross-subspace
@@ -493,8 +562,19 @@ export class PnpmOptionsConfiguration extends PackageManagerOptionsConfiguration
     this._globalPatchedDependencies = json.globalPatchedDependencies;
     this.resolutionMode = json.resolutionMode;
     this.autoInstallPeers = json.autoInstallPeers;
-    this.minimumReleaseAge = json.minimumReleaseAge;
+
+    if (json.minimumReleaseAge !== undefined && json.minimumReleaseAgeMinutes !== undefined) {
+      throw new Error(
+        'The "minimumReleaseAge" setting is deprecated. Use "minimumReleaseAgeMinutes" instead.' +
+          ' Both settings cannot be specified together in pnpm-config.json.'
+      );
+    }
+    this.minimumReleaseAgeMinutes = json.minimumReleaseAgeMinutes ?? json.minimumReleaseAge;
+
     this.minimumReleaseAgeExclude = json.minimumReleaseAgeExclude;
+    this.trustPolicy = json.trustPolicy;
+    this.trustPolicyExclude = json.trustPolicyExclude;
+    this.trustPolicyIgnoreAfterMinutes = json.trustPolicyIgnoreAfterMinutes;
     this.alwaysInjectDependenciesFromOtherSubspaces = json.alwaysInjectDependenciesFromOtherSubspaces;
     this.alwaysFullInstall = json.alwaysFullInstall;
     this.pnpmLockfilePolicies = json.pnpmLockfilePolicies;

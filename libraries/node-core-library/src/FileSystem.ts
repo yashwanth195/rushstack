@@ -28,6 +28,24 @@ export type FileSystemStats = fs.Stats;
  */
 export type FolderItem = fs.Dirent;
 
+/**
+ * An alias for the Node.js `fs.ReadStream` object.
+ *
+ * @remarks
+ * This avoids the need to import the `fs` package when using the {@link FileSystem} API.
+ * @public
+ */
+export type FileSystemReadStream = fs.ReadStream;
+
+/**
+ * An alias for the Node.js `fs.WriteStream` object.
+ *
+ * @remarks
+ * This avoids the need to import the `fs` package when using the {@link FileSystem} API.
+ * @public
+ */
+export type FileSystemWriteStream = fs.WriteStream;
+
 // The PosixModeBits are intended to be used with bitwise operations.
 /* eslint-disable no-bitwise */
 
@@ -44,16 +62,21 @@ export interface IFileSystemReadFolderOptions {
 }
 
 /**
- * The options for {@link FileSystem.writeBuffersToFile}
  * @public
  */
-export interface IFileSystemWriteBinaryFileOptions {
+export interface IFileSystemWriteFileOptionsBase {
   /**
    * If true, will ensure the folder is created before writing the file.
    * @defaultValue false
    */
   ensureFolderExists?: boolean;
 }
+
+/**
+ * The options for {@link FileSystem.writeBuffersToFile}
+ * @public
+ */
+export interface IFileSystemWriteBinaryFileOptions extends IFileSystemWriteFileOptionsBase {}
 
 /**
  * The options for {@link FileSystem.writeFile}
@@ -95,7 +118,7 @@ export interface IFileSystemReadFileOptions {
  * The options for {@link FileSystem.move}
  * @public
  */
-export interface IFileSystemMoveOptions {
+export interface IFileSystemMoveOptions extends IFileSystemWriteFileOptionsBase {
   /**
    * The path of the existing object to be moved.
    * The path may be absolute or relative.
@@ -113,12 +136,6 @@ export interface IFileSystemMoveOptions {
    * @defaultValue true
    */
   overwrite?: boolean;
-
-  /**
-   * If true, will ensure the folder is created before writing the file.
-   * @defaultValue false
-   */
-  ensureFolderExists?: boolean;
 }
 
 /**
@@ -257,6 +274,12 @@ export interface IFileSystemCopyFilesOptions extends IFileSystemCopyFilesAsyncOp
   /**  {@inheritdoc IFileSystemCopyFilesAsyncOptions.filter} */
   filter?: FileSystemCopyFilesFilter; // narrow the type to exclude FileSystemCopyFilesAsyncFilter
 }
+
+/**
+ * The options for {@link FileSystem.createWriteStream}
+ * @public
+ */
+export interface IFileSystemCreateWriteStreamOptions extends IFileSystemWriteFileOptionsBase {}
 
 /**
  * The options for {@link FileSystem.deleteFile}
@@ -750,10 +773,11 @@ export class FileSystem {
    * Writes a text string to a file on disk, overwriting the file if it already exists.
    * Behind the scenes it uses `fs.writeFileSync()`.
    * @remarks
-   * Throws an error if the folder doesn't exist, unless ensureFolder=true.
+   * Throws an error if the folder doesn't exist, unless {@link IFileSystemWriteFileOptionsBase.ensureFolderExists}
+   * is set to `true`.
    * @param filePath - The absolute or relative path of the file.
    * @param contents - The text that should be written to the file.
-   * @param options - Optional settings that can change the behavior. Type: `IWriteFileOptions`
+   * @param options - Optional settings that can change the behavior.
    */
   public static writeFile(
     filePath: string,
@@ -796,7 +820,8 @@ export class FileSystem {
    * multiple sources.
    *
    * @remarks
-   * Throws an error if the folder doesn't exist, unless ensureFolder=true.
+   * Throws an error if the folder doesn't exist, unless {@link IFileSystemWriteFileOptionsBase.ensureFolderExists}
+   * is set to `true`.
    * @param filePath - The absolute or relative path of the file.
    * @param contents - The content that should be written to the file.
    * @param options - Optional settings that can change the behavior.
@@ -956,10 +981,11 @@ export class FileSystem {
    * Writes a text string to a file on disk, appending to the file if it already exists.
    * Behind the scenes it uses `fs.appendFileSync()`.
    * @remarks
-   * Throws an error if the folder doesn't exist, unless ensureFolder=true.
+   * Throws an error if the folder doesn't exist, unless {@link IFileSystemWriteFileOptionsBase.ensureFolderExists}
+   * is set to `true`.
    * @param filePath - The absolute or relative path of the file.
    * @param contents - The text that should be written to the file.
-   * @param options - Optional settings that can change the behavior. Type: `IWriteFileOptions`
+   * @param options - Optional settings that can change the behavior.
    */
   public static appendToFile(
     filePath: string,
@@ -1234,6 +1260,61 @@ export class FileSystem {
           throw error;
         }
       }
+    });
+  }
+
+  /**
+   * Creates a readable stream for an existing file.
+   * Behind the scenes it uses `fs.createReadStream()`.
+   *
+   * @param filePath - The path to the file. The path may be absolute or relative.
+   * @returns A new readable stream for the file.
+   */
+  public static createReadStream(filePath: string): FileSystemReadStream {
+    return FileSystem._wrapException(() => {
+      return fs.createReadStream(filePath);
+    });
+  }
+
+  /**
+   * Creates a writable stream for writing to a file.
+   * Behind the scenes it uses `fs.createWriteStream()`.
+   *
+   * @remarks
+   * Throws an error if the folder doesn't exist, unless {@link IFileSystemWriteFileOptionsBase.ensureFolderExists}
+   * is set to `true`.
+   * @param filePath - The path to the file. The path may be absolute or relative.
+   * @param options - Optional settings that can change the behavior.
+   * @returns A new writable stream for the file.
+   */
+  public static createWriteStream(
+    filePath: string,
+    options?: IFileSystemCreateWriteStreamOptions
+  ): FileSystemWriteStream {
+    return FileSystem._wrapException(() => {
+      if (options?.ensureFolderExists) {
+        const folderPath: string = nodeJsPath.dirname(filePath);
+        FileSystem.ensureFolder(folderPath);
+      }
+
+      return fs.createWriteStream(filePath);
+    });
+  }
+
+  /**
+   * An async version of {@link FileSystem.createWriteStream}.
+   */
+  public static async createWriteStreamAsync(
+    filePath: string,
+    options?: IFileSystemCreateWriteStreamOptions
+  ): Promise<FileSystemWriteStream> {
+    return await FileSystem._wrapExceptionAsync(async () => {
+      if (options?.ensureFolderExists) {
+        const folderPath: string = nodeJsPath.dirname(filePath);
+        await FileSystem.ensureFolderAsync(folderPath);
+      }
+
+      return fs.createWriteStream(filePath);
     });
   }
 
@@ -1518,25 +1599,33 @@ export class FileSystem {
     );
   }
 
+  private static _handleLinkExistError(
+    linkFn: () => void,
+    options: IInternalFileSystemCreateLinkOptions,
+    error: Error
+  ): void {
+    switch (options.alreadyExistsBehavior) {
+      case AlreadyExistsBehavior.Ignore:
+        break;
+      case AlreadyExistsBehavior.Overwrite:
+        // fsx.linkSync does not allow overwriting so we must manually delete. If it's
+        // a folder, it will throw an error.
+        this.deleteFile(options.newLinkPath);
+        linkFn();
+        break;
+      case AlreadyExistsBehavior.Error:
+      default:
+        throw error;
+    }
+  }
+
   private static _handleLink(linkFn: () => void, options: IInternalFileSystemCreateLinkOptions): void {
     try {
       linkFn();
     } catch (error) {
       if (FileSystem.isExistError(error as Error)) {
         // Link exists, handle it
-        switch (options.alreadyExistsBehavior) {
-          case AlreadyExistsBehavior.Ignore:
-            break;
-          case AlreadyExistsBehavior.Overwrite:
-            // fsx.linkSync does not allow overwriting so we must manually delete. If it's
-            // a folder, it will throw an error.
-            this.deleteFile(options.newLinkPath);
-            linkFn();
-            break;
-          case AlreadyExistsBehavior.Error:
-          default:
-            throw error;
-        }
+        FileSystem._handleLinkExistError(linkFn, options, error as Error);
       } else {
         // When attempting to create a link in a directory that does not exist, an ENOENT
         // or ENOTDIR error is thrown, so we should ensure the directory exists before
@@ -1547,11 +1636,41 @@ export class FileSystem {
           (!options.linkTargetMustExist || FileSystem.exists(options.linkTargetPath))
         ) {
           this.ensureFolder(nodeJsPath.dirname(options.newLinkPath));
-          linkFn();
+          try {
+            linkFn();
+          } catch (retryError) {
+            if (FileSystem.isExistError(retryError as Error)) {
+              // Another concurrent process may have created the link between the ensureFolder
+              // call and the retry; handle it the same way as the initial exist error.
+              FileSystem._handleLinkExistError(linkFn, options, retryError as Error);
+            } else {
+              throw retryError;
+            }
+          }
         } else {
           throw error;
         }
       }
+    }
+  }
+
+  private static async _handleLinkExistErrorAsync(
+    linkFn: () => Promise<void>,
+    options: IInternalFileSystemCreateLinkOptions,
+    error: Error
+  ): Promise<void> {
+    switch (options.alreadyExistsBehavior) {
+      case AlreadyExistsBehavior.Ignore:
+        break;
+      case AlreadyExistsBehavior.Overwrite:
+        // fsx.linkSync does not allow overwriting so we must manually delete. If it's
+        // a folder, it will throw an error.
+        await this.deleteFileAsync(options.newLinkPath);
+        await linkFn();
+        break;
+      case AlreadyExistsBehavior.Error:
+      default:
+        throw error;
     }
   }
 
@@ -1564,19 +1683,7 @@ export class FileSystem {
     } catch (error) {
       if (FileSystem.isExistError(error as Error)) {
         // Link exists, handle it
-        switch (options.alreadyExistsBehavior) {
-          case AlreadyExistsBehavior.Ignore:
-            break;
-          case AlreadyExistsBehavior.Overwrite:
-            // fsx.linkSync does not allow overwriting so we must manually delete. If it's
-            // a folder, it will throw an error.
-            await this.deleteFileAsync(options.newLinkPath);
-            await linkFn();
-            break;
-          case AlreadyExistsBehavior.Error:
-          default:
-            throw error;
-        }
+        await FileSystem._handleLinkExistErrorAsync(linkFn, options, error as Error);
       } else {
         // When attempting to create a link in a directory that does not exist, an ENOENT
         // or ENOTDIR error is thrown, so we should ensure the directory exists before
@@ -1587,7 +1694,17 @@ export class FileSystem {
           (!options.linkTargetMustExist || (await FileSystem.existsAsync(options.linkTargetPath)))
         ) {
           await this.ensureFolderAsync(nodeJsPath.dirname(options.newLinkPath));
-          await linkFn();
+          try {
+            await linkFn();
+          } catch (retryError) {
+            if (FileSystem.isExistError(retryError as Error)) {
+              // Another concurrent process may have created the link between the ensureFolderAsync
+              // call and the retry; handle it the same way as the initial exist error.
+              await FileSystem._handleLinkExistErrorAsync(linkFn, options, retryError as Error);
+            } else {
+              throw retryError;
+            }
+          }
         } else {
           throw error;
         }

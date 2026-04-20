@@ -5,8 +5,8 @@ import * as path from 'node:path';
 
 import ignore, { type Ignore } from 'ignore';
 
-import type { IReadonlyLookupByPath, LookupByPath } from '@rushstack/lookup-by-path';
-import { Path, FileSystem, Async, AlreadyReportedError } from '@rushstack/node-core-library';
+import type { IReadonlyLookupByPath, LookupByPath, IPrefixMatch } from '@rushstack/lookup-by-path';
+import { Path, FileSystem, Async, AlreadyReportedError, Sort } from '@rushstack/node-core-library';
 import {
   getRepoChanges,
   getRepoRoot,
@@ -23,6 +23,8 @@ import type { RushConfigurationProject } from '../api/RushConfigurationProject';
 import { BaseProjectShrinkwrapFile } from './base/BaseProjectShrinkwrapFile';
 import { PnpmShrinkwrapFile } from './pnpm/PnpmShrinkwrapFile';
 import { Git } from './Git';
+import { DependencySpecifier, DependencySpecifierType } from './DependencySpecifier';
+import type { IPnpmOptionsJson, PnpmOptionsConfiguration } from './pnpm/PnpmOptionsConfiguration';
 import {
   type IInputsSnapshotProjectMetadata,
   type IInputsSnapshot,
@@ -50,6 +52,16 @@ export interface IGetChangedProjectsOptions {
    * and exclude matched files from change detection.
    */
   enableFiltering: boolean;
+
+  /**
+   * If set to `true`, excludes projects where the only changes are:
+   * - A version-only change to `package.json` (only the "version" field differs)
+   * - Changes to `CHANGELOG.md` and/or `CHANGELOG.json` files
+   *
+   * This prevents `rush version --bump` from triggering `rush change --verify` to request change files
+   * for the version bumps and changelog updates it creates.
+   */
+  excludeVersionOnlyChanges?: boolean;
 }
 
 /**
@@ -83,8 +95,15 @@ export class ProjectChangeAnalyzer {
   ): Promise<Set<RushConfigurationProject>> {
     const { _rushConfiguration: rushConfiguration } = this;
 
-    const { targetBranchName, terminal, includeExternalDependencies, enableFiltering, shouldFetch, variant } =
-      options;
+    const {
+      targetBranchName,
+      terminal,
+      includeExternalDependencies,
+      enableFiltering,
+      shouldFetch,
+      variant,
+      excludeVersionOnlyChanges
+    } = options;
 
     const gitPath: string = this._git.getGitPathOrThrow();
     const repoRoot: string = getRepoRoot(rushConfiguration.rushJsonFolder);
@@ -104,52 +123,99 @@ export class ProjectChangeAnalyzer {
     > = this.getChangesByProject(lookup, changedFiles);
 
     const changedProjects: Set<RushConfigurationProject> = new Set();
-    if (enableFiltering) {
-      // Reading rush-project.json may be problematic if, e.g. rush install has not yet occurred and rigs are in use
-      await Async.forEachAsync(
-        changesByProject,
-        async ([project, projectChanges]) => {
-          const filteredChanges: Map<string, IFileDiffStatus> = await this._filterProjectDataAsync(
-            project,
-            projectChanges,
-            repoRoot,
-            terminal
-          );
 
-          if (filteredChanges.size > 0) {
-            changedProjects.add(project);
-          }
-        },
-        { concurrency: 10 }
-      );
-    } else {
-      for (const [project, projectChanges] of changesByProject) {
-        if (projectChanges.size > 0) {
-          changedProjects.add(project);
+    await Async.forEachAsync(
+      changesByProject,
+      async ([project, projectChanges]) => {
+        const filteredChanges: Map<string, IFileDiffStatus> = enableFiltering
+          ? await this._filterProjectDataAsync(project, projectChanges, repoRoot, terminal)
+          : projectChanges;
+
+        // Skip if no changes
+        if (filteredChanges.size === 0) {
+          return;
         }
+
+        // If excludeVersionOnlyChanges is not enabled, include the project
+        if (!excludeVersionOnlyChanges) {
+          changedProjects.add(project);
+          return;
+        }
+
+        // Filter out package.json with version-only changes, CHANGELOG.md, and CHANGELOG.json
+        for (const [filePath, diffStatus] of filteredChanges) {
+          // Use lookup to find the project-relative path
+          const match: IPrefixMatch<RushConfigurationProject> | undefined =
+            lookup.findLongestPrefixMatch(filePath);
+          if (!match) {
+            // This should be unreachable as projectChanges contains files where match.value === project
+            changedProjects.add(project);
+            return;
+          }
+
+          const projectRelativePath: string = filePath.slice(match.index);
+
+          // Skip CHANGELOG.md and CHANGELOG.json files at project root
+          if (projectRelativePath === '/CHANGELOG.md' || projectRelativePath === '/CHANGELOG.json') {
+            continue;
+          }
+
+          // Check if this is package.json at project root with version-only changes
+          if (projectRelativePath === '/package.json') {
+            const isVersionOnlyChange: boolean = await isVersionOnlyChangeAsync(
+              diffStatus,
+              repoRoot,
+              this._git
+            );
+            if (isVersionOnlyChange) {
+              continue; // Skip version-only package.json changes
+            }
+          }
+
+          // Found a non-excluded change
+          changedProjects.add(project);
+          break;
+        }
+      },
+      { concurrency: 10 }
+    );
+
+    // Detect per-subspace changes: catalog entries in pnpm-config.json and external dependency lockfiles
+    const subspaces: Iterable<Subspace> = rushConfiguration.subspacesFeatureEnabled
+      ? rushConfiguration.subspaces
+      : [rushConfiguration.defaultSubspace];
+
+    const variantToUse: string | undefined = includeExternalDependencies
+      ? (variant ?? (await this._rushConfiguration.getCurrentlyInstalledVariantAsync()))
+      : undefined;
+
+    await Async.forEachAsync(subspaces, async (subspace: Subspace) => {
+      const subspaceProjects: RushConfigurationProject[] = subspace.getProjects();
+
+      // Detect changes to pnpm catalog entries in pnpm-config.json
+      if (rushConfiguration.isPnpm) {
+        await this._detectCatalogChangesAsync(
+          subspace,
+          rushConfiguration,
+          changedFiles,
+          mergeCommit,
+          repoRoot,
+          terminal,
+          changedProjects
+        );
       }
-    }
 
-    // External dependency changes are not allowed to be filtered, so add these after filtering
-    if (includeExternalDependencies) {
-      // Even though changing the installed version of a nested dependency merits a change file,
-      // ignore lockfile changes for `rush change` for the moment
+      // External dependency changes are not allowed to be filtered, so add these after filtering
+      if (includeExternalDependencies) {
+        // Even though changing the installed version of a nested dependency merits a change file,
+        // ignore lockfile changes for `rush change` for the moment
 
-      const subspaces: Iterable<Subspace> = rushConfiguration.subspacesFeatureEnabled
-        ? rushConfiguration.subspaces
-        : [rushConfiguration.defaultSubspace];
-
-      const variantToUse: string | undefined =
-        variant ?? (await this._rushConfiguration.getCurrentlyInstalledVariantAsync());
-
-      await Async.forEachAsync(subspaces, async (subspace: Subspace) => {
         const fullShrinkwrapPath: string = subspace.getCommittedShrinkwrapFilePath(variantToUse);
 
         const relativeShrinkwrapFilePath: string = Path.convertToSlashes(
           path.relative(repoRoot, fullShrinkwrapPath)
         );
         const shrinkwrapStatus: IFileDiffStatus | undefined = changedFiles.get(relativeShrinkwrapFilePath);
-        const subspaceProjects: RushConfigurationProject[] = subspace.getProjects();
 
         if (shrinkwrapStatus) {
           if (shrinkwrapStatus.status !== 'M') {
@@ -167,7 +233,7 @@ export class ProjectChangeAnalyzer {
           }
 
           if (rushConfiguration.isPnpm) {
-            const subspaceHasNoProjects: boolean = subspace.getProjects().length === 0;
+            const subspaceHasNoProjects: boolean = subspaceProjects.length === 0;
             const currentShrinkwrap: PnpmShrinkwrapFile | undefined = PnpmShrinkwrapFile.loadFromFile(
               fullShrinkwrapPath,
               { subspaceHasNoProjects }
@@ -205,14 +271,18 @@ export class ProjectChangeAnalyzer {
                 `Lockfile has changed and lockfile content comparison is only supported for pnpm. Assuming all projects are affected.`
               );
             }
-            subspace.getProjects().forEach((project) => changedProjects.add(project));
+            subspaceProjects.forEach((project) => changedProjects.add(project));
             return;
           }
         }
-      });
-    }
+      }
+    });
 
-    return changedProjects;
+    // Sort the set by projectRelativeFolder to avoid race conditions in the results
+    const sortedChangedProjects: RushConfigurationProject[] = Array.from(changedProjects);
+    Sort.sortBy(sortedChangedProjects, (project) => project.projectRelativeFolder);
+
+    return new Set(sortedChangedProjects);
   }
 
   protected getChangesByProject(
@@ -439,6 +509,159 @@ export class ProjectChangeAnalyzer {
       return ignoreMatcher;
     }
   }
+
+  /**
+   * Detects changes to pnpm catalog entries in a subspace's pnpm-config.json and marks
+   * affected projects as changed.
+   */
+  private async _detectCatalogChangesAsync(
+    subspace: Subspace,
+    rushConfiguration: RushConfiguration,
+    changedFiles: Map<string, IFileDiffStatus>,
+    mergeCommit: string,
+    repoRoot: string,
+    terminal: ITerminal,
+    changedProjects: Set<RushConfigurationProject>
+  ): Promise<void> {
+    const pnpmOptions: PnpmOptionsConfiguration | undefined = subspace.getPnpmOptions();
+    // Default to an empty object if no global catalogs are configured, handle case of globalCatalogs being deleted
+    const currentCatalogs: Record<string, Record<string, string>> = pnpmOptions?.globalCatalogs ?? {};
+
+    const pnpmConfigRelativePath: string = Path.convertToSlashes(
+      path.relative(repoRoot, subspace.getPnpmConfigFilePath())
+    );
+
+    if (!changedFiles.has(pnpmConfigRelativePath)) {
+      return;
+    }
+
+    // Determine which specific packages changed within each catalog namespace
+    // Maps catalogNamespace (e.g. "default", "react17") → Set of changed package names
+    let oldCatalogs: Record<string, Record<string, string>> | undefined;
+    try {
+      const oldPnpmConfigText: string = await this._git.getBlobContentAsync({
+        blobSpec: `${mergeCommit}:${pnpmConfigRelativePath}`,
+        repositoryRoot: repoRoot
+      });
+      const oldPnpmConfig: IPnpmOptionsJson = JSON.parse(oldPnpmConfigText);
+      oldCatalogs = oldPnpmConfig.globalCatalogs ?? {};
+    } catch {
+      // Old file didn't exist or was unparseable — treat all packages in all current catalogs as changed
+      if (rushConfiguration.subspacesFeatureEnabled) {
+        terminal.writeLine(
+          `"${subspace.subspaceName}" subspace pnpm-config.json was created or unparseable. Assuming all projects are affected.`
+        );
+      } else {
+        terminal.writeLine(
+          `pnpm-config.json was created or unparseable. Assuming all projects are affected.`
+        );
+      }
+    }
+
+    const changedCatalogPackages: Map<string, Set<string>> = new Map();
+    const currentCatalogEntries: Map<string, Record<string, string>> = new Map(
+      Object.entries(currentCatalogs)
+    );
+
+    if (oldCatalogs === undefined) {
+      // Could not load old catalogs — treat all packages in all current catalogs as changed
+      for (const [catalogName, packages] of currentCatalogEntries) {
+        changedCatalogPackages.set(catalogName, new Set(Object.keys(packages)));
+      }
+    } else {
+      // Check current catalogs for new or modified package entries
+      for (const [catalogName, packages] of currentCatalogEntries) {
+        const oldPackages: Record<string, string> | undefined = oldCatalogs[catalogName];
+        if (!oldPackages) {
+          // Entire catalog is new — all packages in it are changed
+          changedCatalogPackages.set(catalogName, new Set(Object.keys(packages)));
+          continue;
+        }
+        const changedPackages: Set<string> = new Set();
+        for (const [pkgName, version] of Object.entries(packages)) {
+          if (oldPackages[pkgName] !== version) {
+            changedPackages.add(pkgName);
+          }
+        }
+        // Check for packages that were removed from this catalog
+        for (const pkgName of Object.keys(oldPackages)) {
+          if (!Object.prototype.hasOwnProperty.call(packages, pkgName)) {
+            changedPackages.add(pkgName);
+          }
+        }
+        if (changedPackages.size > 0) {
+          changedCatalogPackages.set(catalogName, changedPackages);
+        }
+      }
+
+      // Check for catalogs that were entirely removed
+      for (const [catalogName, oldPackages] of Object.entries(oldCatalogs)) {
+        if (!Object.prototype.hasOwnProperty.call(currentCatalogs, catalogName)) {
+          changedCatalogPackages.set(catalogName, new Set(Object.keys(oldPackages)));
+        }
+      }
+    }
+
+    if (changedCatalogPackages.size > 0) {
+      // Check each project in the subspace to see if it depends on a changed catalog package
+      const subspaceProjects: RushConfigurationProject[] = subspace.getProjects();
+      subspaceProjects.forEach((project) => {
+        const { dependencies, devDependencies, optionalDependencies, peerDependencies } =
+          project.packageJson;
+        const allDependencies: Set<[string, string]> = new Set(
+          [dependencies, devDependencies, optionalDependencies, peerDependencies].flatMap((deps) =>
+            Object.entries(deps ?? {})
+          )
+        );
+
+        for (const [depName, depVersion] of allDependencies) {
+          const specifier: DependencySpecifier = DependencySpecifier.parseWithCache(depName, depVersion);
+          if (specifier.specifierType === DependencySpecifierType.Catalog) {
+            // versionSpecifier holds the catalog name (empty string for "catalog:")
+            const catalogName: string = specifier.versionSpecifier || 'default';
+            const changedPkgs: Set<string> | undefined = changedCatalogPackages.get(catalogName);
+            if (changedPkgs?.has(depName)) {
+              changedProjects.add(project);
+              return;
+            }
+          }
+        }
+      });
+    }
+  }
+}
+
+/**
+ * Checks if a diff represents a version-only change to package.json.
+ */
+async function isVersionOnlyChangeAsync(
+  diffStatus: IFileDiffStatus,
+  repoRoot: string,
+  git: Git
+): Promise<boolean> {
+  try {
+    // Only check modified files, not additions or deletions
+    if (diffStatus.status !== 'M') {
+      return false;
+    }
+
+    // Get both versions of package.json from Git in parallel
+    const [oldPackageJsonContent, currentPackageJsonContent] = await Promise.all([
+      git.getBlobContentAsync({
+        blobSpec: diffStatus.oldhash,
+        repositoryRoot: repoRoot
+      }),
+      git.getBlobContentAsync({
+        blobSpec: diffStatus.newhash,
+        repositoryRoot: repoRoot
+      })
+    ]);
+
+    return isPackageJsonVersionOnlyChange(oldPackageJsonContent, currentPackageJsonContent);
+  } catch (error) {
+    // If we can't read the file or parse it, assume it's not a version-only change
+    return false;
+  }
 }
 
 interface IAdditionalGlob {
@@ -512,4 +735,36 @@ async function getAdditionalFilesFromRushProjectConfigurationAsync(
   });
 
   return additionalFilesFromRushProjectConfiguration;
+}
+
+/**
+ * Compares two package.json file contents and determines if the only difference is the "version" field.
+ * @param oldPackageJsonContent - The old package.json content as a string
+ * @param newPackageJsonContent - The new package.json content as a string
+ * @returns true if the only difference is the version field, false otherwise
+ */
+export function isPackageJsonVersionOnlyChange(
+  oldPackageJsonContent: string,
+  newPackageJsonContent: string
+): boolean {
+  try {
+    // Parse both versions - use specific type since we only care about version field
+    const oldPackageJson: { version?: string } = JSON.parse(oldPackageJsonContent);
+    const newPackageJson: { version?: string } = JSON.parse(newPackageJsonContent);
+
+    // Ensure both have a version field
+    if (!oldPackageJson.version || !newPackageJson.version) {
+      return false;
+    }
+
+    // Remove the version field from both (no need to clone, these are fresh objects from JSON.parse)
+    oldPackageJson.version = undefined;
+    newPackageJson.version = undefined;
+
+    // Compare the objects without the version field
+    return JSON.stringify(oldPackageJson) === JSON.stringify(newPackageJson);
+  } catch (error) {
+    // If we can't parse the JSON, assume it's not a version-only change
+    return false;
+  }
 }

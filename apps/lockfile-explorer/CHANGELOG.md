@@ -1,6 +1,121 @@
 # Change Log - @rushstack/lockfile-explorer
 
-This log was last generated on Fri, 30 Jan 2026 01:16:13 GMT and should not be manually modified.
+This log was last generated on Mon, 20 Apr 2026 15:15:24 GMT and should not be manually modified.
+
+## 2.2.17
+Mon, 20 Apr 2026 15:15:24 GMT
+
+_Version update only_
+
+## 2.2.16
+Sat, 18 Apr 2026 03:47:09 GMT
+
+### Patches
+
+- Remove open dependency; use `Executable.spawn()` from `node-core-library` to launch the browser.
+
+## 2.2.15
+Sat, 18 Apr 2026 00:15:16 GMT
+
+### Patches
+
+- Bump semver.
+
+## 2.2.14
+Fri, 17 Apr 2026 15:14:57 GMT
+
+_Version update only_
+
+## 2.2.13
+Fri, 10 Apr 2026 22:46:34 GMT
+
+_Version update only_
+
+## 2.2.12
+Thu, 09 Apr 2026 00:15:07 GMT
+
+_Version update only_
+
+## 2.2.11
+Sat, 04 Apr 2026 00:14:00 GMT
+
+_Version update only_
+
+## 2.2.10
+Wed, 01 Apr 2026 15:13:38 GMT
+
+_Version update only_
+
+## 2.2.9
+Tue, 31 Mar 2026 15:14:15 GMT
+
+_Version update only_
+
+## 2.2.8
+Mon, 09 Mar 2026 15:14:08 GMT
+
+_Version update only_
+
+## 2.2.7
+Wed, 25 Feb 2026 21:39:42 GMT
+
+_Version update only_
+
+## 2.2.6
+Wed, 25 Feb 2026 00:34:30 GMT
+
+_Version update only_
+
+## 2.2.5
+Tue, 24 Feb 2026 01:13:27 GMT
+
+_Version update only_
+
+## 2.2.4
+Mon, 23 Feb 2026 00:42:21 GMT
+
+_Version update only_
+
+## 2.2.3
+Fri, 20 Feb 2026 16:14:49 GMT
+
+_Version update only_
+
+## 2.2.2
+Fri, 20 Feb 2026 00:15:04 GMT
+
+### Patches
+
+- Add `"node"` condition before `"import"` in the `"exports"` map so that Node.js uses the CJS output (which handles extensionless imports), while bundlers still use ESM via `"import"`. Fixes https://github.com/microsoft/rushstack/issues/5644.
+
+## 2.2.1
+Thu, 19 Feb 2026 16:14:02 GMT
+
+### Patches
+
+- Publish patch release because dependencies of 2.2.0 were incorrectly published.
+
+## 2.2.0
+Thu, 19 Feb 2026 00:04:53 GMT
+
+### Minor changes
+
+- Normalize package layout. CommonJS is now under `lib-commonjs`, DTS is now under `lib-dts`, and ESM is now under `lib-esm`. Imports to `lib` still work as before, handled by the `"exports"` field in `package.json`.
+
+## 2.1.7
+Sat, 07 Feb 2026 01:13:26 GMT
+
+_Version update only_
+
+## 2.1.6
+Wed, 04 Feb 2026 20:42:47 GMT
+
+_Version update only_
+
+## 2.1.5
+Wed, 04 Feb 2026 16:13:27 GMT
+
+_Version update only_
 
 ## 2.1.4
 Fri, 30 Jan 2026 01:16:13 GMT

@@ -325,6 +325,7 @@ export class Subspace {
         this._rushConfiguration
       );
     }
+
     return this._commonVersionsConfiguration;
   }
 
@@ -478,7 +479,6 @@ export class Subspace {
         name,
         bin,
         dependencies,
-        devDependencies,
         peerDependencies,
         optionalDependencies,
         dependenciesMeta,
@@ -500,7 +500,6 @@ export class Subspace {
         name,
         bin,
         dependencies,
-        devDependencies,
         peerDependencies,
         optionalDependencies,
         dependenciesMeta,

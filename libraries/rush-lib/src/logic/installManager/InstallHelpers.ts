@@ -35,8 +35,11 @@ interface ICommonPackageJson extends IPackageJson {
     ignoredOptionalDependencies?: typeof PnpmOptionsConfiguration.prototype.globalIgnoredOptionalDependencies;
     allowedDeprecatedVersions?: typeof PnpmOptionsConfiguration.prototype.globalAllowedDeprecatedVersions;
     patchedDependencies?: typeof PnpmOptionsConfiguration.prototype.globalPatchedDependencies;
-    minimumReleaseAge?: typeof PnpmOptionsConfiguration.prototype.minimumReleaseAge;
+    minimumReleaseAge?: typeof PnpmOptionsConfiguration.prototype.minimumReleaseAgeMinutes;
     minimumReleaseAgeExclude?: typeof PnpmOptionsConfiguration.prototype.minimumReleaseAgeExclude;
+    trustPolicy?: typeof PnpmOptionsConfiguration.prototype.trustPolicy;
+    trustPolicyExclude?: typeof PnpmOptionsConfiguration.prototype.trustPolicyExclude;
+    trustPolicyIgnoreAfter?: typeof PnpmOptionsConfiguration.prototype.trustPolicyIgnoreAfterMinutes;
   };
 }
 
@@ -121,7 +124,7 @@ export class InstallHelpers {
         commonPackageJson.pnpm.patchedDependencies = pnpmOptions.globalPatchedDependencies;
       }
 
-      if (pnpmOptions.minimumReleaseAge !== undefined || pnpmOptions.minimumReleaseAgeExclude) {
+      if (pnpmOptions.minimumReleaseAgeMinutes !== undefined || pnpmOptions.minimumReleaseAgeExclude) {
         if (
           rushConfiguration.rushConfigurationJson.pnpmVersion !== undefined &&
           semver.lt(rushConfiguration.rushConfigurationJson.pnpmVersion, '10.16.0')
@@ -129,20 +132,76 @@ export class InstallHelpers {
           terminal.writeWarningLine(
             Colorize.yellow(
               `Your version of pnpm (${rushConfiguration.rushConfigurationJson.pnpmVersion}) ` +
-                `doesn't support the "minimumReleaseAge" or "minimumReleaseAgeExclude" fields in ` +
+                `doesn't support the "minimumReleaseAgeMinutes" or "minimumReleaseAgeExclude" fields in ` +
                 `${rushConfiguration.commonRushConfigFolder}/${RushConstants.pnpmConfigFilename}. ` +
                 'Remove these fields or upgrade to pnpm 10.16.0 or newer.'
             )
           );
         }
 
-        if (pnpmOptions.minimumReleaseAge !== undefined) {
-          commonPackageJson.pnpm.minimumReleaseAge = pnpmOptions.minimumReleaseAge;
+        if (pnpmOptions.minimumReleaseAgeMinutes !== undefined) {
+          // NOTE: the pnpm setting is `minimumReleaseAge`, but the Rush setting is `minimumReleaseAgeMinutes`
+          commonPackageJson.pnpm.minimumReleaseAge = pnpmOptions.minimumReleaseAgeMinutes;
         }
 
         if (pnpmOptions.minimumReleaseAgeExclude) {
           commonPackageJson.pnpm.minimumReleaseAgeExclude = pnpmOptions.minimumReleaseAgeExclude;
         }
+      }
+
+      if (pnpmOptions.trustPolicy !== undefined) {
+        if (
+          rushConfiguration.rushConfigurationJson.pnpmVersion !== undefined &&
+          semver.lt(rushConfiguration.rushConfigurationJson.pnpmVersion, '10.21.0')
+        ) {
+          terminal.writeWarningLine(
+            Colorize.yellow(
+              `Your version of pnpm (${rushConfiguration.rushConfigurationJson.pnpmVersion}) ` +
+                `doesn't support the "trustPolicy" field in ` +
+                `${rushConfiguration.commonRushConfigFolder}/${RushConstants.pnpmConfigFilename}. ` +
+                'Remove this field or upgrade to pnpm 10.21.0 or newer.'
+            )
+          );
+        }
+
+        commonPackageJson.pnpm.trustPolicy = pnpmOptions.trustPolicy;
+      }
+
+      if (pnpmOptions.trustPolicyExclude) {
+        if (
+          rushConfiguration.rushConfigurationJson.pnpmVersion !== undefined &&
+          semver.lt(rushConfiguration.rushConfigurationJson.pnpmVersion, '10.22.0')
+        ) {
+          terminal.writeWarningLine(
+            Colorize.yellow(
+              `Your version of pnpm (${rushConfiguration.rushConfigurationJson.pnpmVersion}) ` +
+                `doesn't support the "trustPolicyExclude" field in ` +
+                `${rushConfiguration.commonRushConfigFolder}/${RushConstants.pnpmConfigFilename}. ` +
+                'Remove this field or upgrade to pnpm 10.22.0 or newer.'
+            )
+          );
+        }
+
+        commonPackageJson.pnpm.trustPolicyExclude = pnpmOptions.trustPolicyExclude;
+      }
+
+      if (pnpmOptions.trustPolicyIgnoreAfterMinutes !== undefined) {
+        if (
+          rushConfiguration.rushConfigurationJson.pnpmVersion !== undefined &&
+          semver.lt(rushConfiguration.rushConfigurationJson.pnpmVersion, '10.27.0')
+        ) {
+          terminal.writeWarningLine(
+            Colorize.yellow(
+              `Your version of pnpm (${rushConfiguration.rushConfigurationJson.pnpmVersion}) ` +
+                `doesn't support the "trustPolicyIgnoreAfterMinutes" field in ` +
+                `${rushConfiguration.commonRushConfigFolder}/${RushConstants.pnpmConfigFilename}. ` +
+                'Remove this field or upgrade to pnpm 10.27.0 or newer.'
+            )
+          );
+        }
+
+        // NOTE: the pnpm setting is `trustPolicyIgnoreAfter`, but the rush pnpm setting is `trustPolicyIgnoreAfterMinutes`
+        commonPackageJson.pnpm.trustPolicyIgnoreAfter = pnpmOptions.trustPolicyIgnoreAfterMinutes;
       }
 
       if (pnpmOptions.unsupportedPackageJsonSettings) {

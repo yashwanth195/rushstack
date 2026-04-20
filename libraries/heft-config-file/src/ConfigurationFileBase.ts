@@ -4,7 +4,6 @@
 import * as nodeJsPath from 'node:path';
 
 import { JSONPath } from 'jsonpath-plus';
-import structuredClone from '@ungap/structured-clone';
 
 import { JsonSchema, JsonFile, Import, FileSystem } from '@rushstack/node-core-library';
 import type { ITerminal } from '@rushstack/terminal';
@@ -448,16 +447,24 @@ export abstract class ConfigurationFileBase<TConfigurationFile, TExtraOptions ex
   > = new Map();
 
   public constructor(options: IConfigurationFileOptions<TConfigurationFile, TExtraOptions>) {
-    if (options.jsonSchemaObject) {
-      this._getSchema = () => JsonSchema.fromLoadedObject(options.jsonSchemaObject);
+    const {
+      jsonSchemaObject,
+      jsonSchemaPath,
+      jsonPathMetadata = {},
+      propertyInheritance = {},
+      propertyInheritanceDefaults = {},
+      customValidationFunction
+    } = options;
+    if (jsonSchemaObject) {
+      this._getSchema = () => JsonSchema.fromLoadedObject(jsonSchemaObject);
     } else {
-      this._getSchema = () => JsonSchema.fromFile(options.jsonSchemaPath);
+      this._getSchema = () => JsonSchema.fromFile(jsonSchemaPath);
     }
 
-    this._jsonPathMetadata = Object.entries(options.jsonPathMetadata || {});
-    this._propertyInheritanceTypes = options.propertyInheritance || {};
-    this._defaultPropertyInheritance = options.propertyInheritanceDefaults || {};
-    this._customValidationFunction = options.customValidationFunction;
+    this._jsonPathMetadata = Object.entries(jsonPathMetadata);
+    this._propertyInheritanceTypes = propertyInheritance;
+    this._defaultPropertyInheritance = propertyInheritanceDefaults;
+    this._customValidationFunction = customValidationFunction;
   }
 
   /**
@@ -644,7 +651,6 @@ export abstract class ConfigurationFileBase<TConfigurationFile, TExtraOptions ex
     projectFolderPath: string | undefined
   ): IConfigurationJson & TConfigurationFile {
     // Deep copy the configuration file because different callers might contextualize properties differently.
-    // TODO: Replace this version of structuredClone with the built-in version once Node 16 support is dropped on the TikTok side
     const result: IConfigurationJson & TConfigurationFile = structuredClone<
       IConfigurationJson & TConfigurationFile
     >(entry.configurationFile);

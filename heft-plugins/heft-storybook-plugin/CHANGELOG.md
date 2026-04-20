@@ -1,6 +1,132 @@
 # Change Log - @rushstack/heft-storybook-plugin
 
-This log was last generated on Fri, 30 Jan 2026 01:16:13 GMT and should not be manually modified.
+This log was last generated on Mon, 20 Apr 2026 15:15:24 GMT and should not be manually modified.
+
+## 1.4.10
+Mon, 20 Apr 2026 15:15:24 GMT
+
+_Version update only_
+
+## 1.4.9
+Sat, 18 Apr 2026 03:47:10 GMT
+
+_Version update only_
+
+## 1.4.8
+Sat, 18 Apr 2026 00:15:17 GMT
+
+_Version update only_
+
+## 1.4.7
+Fri, 17 Apr 2026 15:14:57 GMT
+
+_Version update only_
+
+## 1.4.6
+Fri, 10 Apr 2026 22:46:34 GMT
+
+_Version update only_
+
+## 1.4.5
+Thu, 09 Apr 2026 00:15:07 GMT
+
+_Version update only_
+
+## 1.4.4
+Sat, 04 Apr 2026 00:14:00 GMT
+
+_Version update only_
+
+## 1.4.3
+Thu, 02 Apr 2026 00:14:38 GMT
+
+_Version update only_
+
+## 1.4.2
+Wed, 01 Apr 2026 15:13:38 GMT
+
+_Version update only_
+
+## 1.4.1
+Tue, 31 Mar 2026 15:14:15 GMT
+
+_Version update only_
+
+## 1.4.0
+Sat, 14 Mar 2026 00:13:47 GMT
+
+### Minor changes
+
+- Add `disableTelemetry` option to set STORYBOOK_DISABLE_TELEMETRY=1 when invoking Storybook; always set COREPACK_ENABLE_AUTO_PIN=0 in the subprocess environment
+
+## 1.3.7
+Mon, 09 Mar 2026 15:14:08 GMT
+
+_Version update only_
+
+## 1.3.6
+Wed, 25 Feb 2026 21:39:42 GMT
+
+_Version update only_
+
+## 1.3.5
+Wed, 25 Feb 2026 00:34:29 GMT
+
+_Version update only_
+
+## 1.3.4
+Tue, 24 Feb 2026 01:13:27 GMT
+
+_Version update only_
+
+## 1.3.3
+Mon, 23 Feb 2026 00:42:21 GMT
+
+_Version update only_
+
+## 1.3.2
+Fri, 20 Feb 2026 16:14:49 GMT
+
+_Version update only_
+
+## 1.3.1
+Fri, 20 Feb 2026 00:15:04 GMT
+
+### Patches
+
+- Add `"node"` condition before `"import"` in the `"exports"` map so that Node.js uses the CJS output (which handles extensionless imports), while bundlers still use ESM via `"import"`. Fixes https://github.com/microsoft/rushstack/issues/5644.
+
+## 1.3.0
+Thu, 19 Feb 2026 00:04:52 GMT
+
+### Minor changes
+
+- Normalize package layout. CommonJS is now under `lib-commonjs`, DTS is now under `lib-dts`, and ESM is now under `lib-esm`. Imports to `lib` still work as before, handled by the `"exports"` field in `package.json`.
+
+## 1.2.9
+Sat, 07 Feb 2026 01:13:26 GMT
+
+_Version update only_
+
+## 1.2.8
+Thu, 05 Feb 2026 01:54:04 GMT
+
+_Version update only_
+
+## 1.2.7
+Thu, 05 Feb 2026 00:23:59 GMT
+
+_Version update only_
+
+## 1.2.6
+Wed, 04 Feb 2026 20:42:47 GMT
+
+_Version update only_
+
+## 1.2.5
+Wed, 04 Feb 2026 16:13:27 GMT
+
+_Version update only_
 
 ## 1.2.4
 Fri, 30 Jan 2026 01:16:13 GMT

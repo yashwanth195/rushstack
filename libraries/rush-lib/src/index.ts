@@ -48,7 +48,8 @@ export {
   type IPnpmPeerDependenciesMeta,
   type PnpmStoreOptions,
   PnpmOptionsConfiguration,
-  type PnpmResolutionMode
+  type PnpmResolutionMode,
+  type PnpmTrustPolicy
 } from './logic/pnpm/PnpmOptionsConfiguration';
 
 export { BuildCacheConfiguration } from './api/BuildCacheConfiguration';
@@ -79,6 +80,7 @@ export { RushConfigurationProject } from './api/RushConfigurationProject';
 export {
   type IRushProjectJson as _IRushProjectJson,
   type IOperationSettings,
+  type NodeVersionGranularity,
   RushProjectConfiguration,
   type IRushPhaseSharding
 } from './api/RushProjectConfiguration';

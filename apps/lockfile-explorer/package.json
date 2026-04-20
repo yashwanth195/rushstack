@@ -1,6 +1,6 @@
 {
   "name": "@rushstack/lockfile-explorer",
-  "version": "2.1.4",
+  "version": "2.2.17",
   "description": "Rush Lockfile Explorer: The UI for solving version conflicts quickly in a large monorepo",
   "keywords": [
     "conflict",
@@ -33,7 +33,7 @@
   "scripts": {
     "build": "heft build --clean",
     "start": "heft start",
-    "serve": "node ./lib/start-explorer.js --debug",
+    "serve": "node ./lib-commonjs/start-explorer.js --debug",
     "test": "heft test",
     "_phase:build": "heft run --only build -- --clean",
     "_phase:test": "heft run --only test -- --clean"
@@ -57,7 +57,7 @@
     "local-node-rig": "workspace:*",
     "@pnpm/lockfile.types": "1002.0.1",
     "@pnpm/types": "1000.8.0",
-    "@types/semver": "7.5.0"
+    "@types/semver": "7.7.1"
   },
   "dependencies": {
     "tslib": "~2.8.1",
@@ -70,8 +70,30 @@
     "cors": "~2.8.5",
     "express": "4.21.1",
     "js-yaml": "~4.1.0",
-    "open": "~8.4.0",
-    "semver": "~7.5.4",
+    "semver": "~7.7.4",
     "update-notifier": "~5.1.0"
-  }
+  },
+  "exports": {
+    "./lib/*.schema.json": "./lib-commonjs/*.schema.json",
+    "./lib/*": {
+      "types": "./lib-dts/*.d.ts",
+      "node": "./lib-commonjs/*.js",
+      "import": "./lib-esm/*.js",
+      "require": "./lib-commonjs/*.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "typesVersions": {
+    "*": {
+      "lib/*": [
+        "lib-dts/*"
+      ]
+    }
+  },
+  "sideEffects": [
+    "lib-commonjs/start-explorer.js",
+    "lib-commonjs/start-lint.js",
+    "lib-esm/start-explorer.js",
+    "lib-esm/start-lint.js"
+  ]
 }

@@ -1,6 +1,55 @@
 # Change Log - @rushstack/operation-graph
 
-This log was last generated on Wed, 07 Jan 2026 01:12:24 GMT and should not be manually modified.
+This log was last generated on Sat, 18 Apr 2026 03:47:10 GMT and should not be manually modified.
+
+## 0.6.8
+Sat, 18 Apr 2026 03:47:10 GMT
+
+_Version update only_
+
+## 0.6.7
+Sat, 18 Apr 2026 00:15:17 GMT
+
+_Version update only_
+
+## 0.6.6
+Fri, 17 Apr 2026 15:14:57 GMT
+
+_Version update only_
+
+## 0.6.5
+Thu, 09 Apr 2026 00:15:07 GMT
+
+_Version update only_
+
+## 0.6.4
+Tue, 31 Mar 2026 15:14:14 GMT
+
+_Version update only_
+
+## 0.6.3
+Wed, 25 Feb 2026 00:34:30 GMT
+
+_Version update only_
+
+## 0.6.2
+Tue, 24 Feb 2026 01:13:27 GMT
+
+_Version update only_
+
+## 0.6.1
+Fri, 20 Feb 2026 00:15:04 GMT
+
+### Patches
+
+- Add `"node"` condition before `"import"` in the `"exports"` map so that Node.js uses the CJS output (which handles extensionless imports), while bundlers still use ESM via `"import"`. Fixes https://github.com/microsoft/rushstack/issues/5644.
+
+## 0.6.0
+Thu, 19 Feb 2026 00:04:53 GMT
+
+### Minor changes
+
+- Normalize package layout. CommonJS is now under `lib-commonjs`, DTS is now under `lib-dts`, and ESM is now under `lib-esm`. Imports to `lib` still work as before, handled by the `"exports"` field in `package.json`.
 
 ## 0.5.7
 Wed, 07 Jan 2026 01:12:24 GMT

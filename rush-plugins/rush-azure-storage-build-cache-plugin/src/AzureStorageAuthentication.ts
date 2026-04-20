@@ -24,6 +24,7 @@ import {
 export interface IAzureStorageAuthenticationOptions extends IAzureAuthenticationBaseOptions {
   storageContainerName: string;
   storageAccountName: string;
+  storageEndpoint?: string;
   isCacheWriteAllowed: boolean;
 }
 
@@ -43,10 +44,15 @@ export class AzureStorageAuthentication extends AzureAuthenticationBase {
 
   public constructor(options: IAzureStorageAuthenticationOptions) {
     super(options);
-    this._storageAccountName = options.storageAccountName;
-    this._storageContainerName = options.storageContainerName;
-    this._isCacheWriteAllowedByConfiguration = options.isCacheWriteAllowed;
-    this._storageAccountUrl = `https://${this._storageAccountName}.blob.core.windows.net/`;
+    const { storageAccountName, storageContainerName, isCacheWriteAllowed, storageEndpoint } = options;
+    this._storageAccountName = storageAccountName;
+    this._storageContainerName = storageContainerName;
+    this._isCacheWriteAllowedByConfiguration = isCacheWriteAllowed;
+    this._storageAccountUrl = storageEndpoint
+      ? storageEndpoint.endsWith('/')
+        ? storageEndpoint
+        : storageEndpoint + '/'
+      : `https://${storageAccountName}.blob.core.windows.net/`;
   }
 
   protected _getCacheIdParts(): string[] {

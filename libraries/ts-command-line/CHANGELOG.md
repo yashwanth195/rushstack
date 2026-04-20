@@ -1,6 +1,62 @@
 # Change Log - @rushstack/ts-command-line
 
-This log was last generated on Wed, 07 Jan 2026 01:12:25 GMT and should not be manually modified.
+This log was last generated on Sat, 18 Apr 2026 03:47:10 GMT and should not be manually modified.
+
+## 5.3.8
+Sat, 18 Apr 2026 03:47:10 GMT
+
+_Version update only_
+
+## 5.3.7
+Sat, 18 Apr 2026 00:15:17 GMT
+
+_Version update only_
+
+## 5.3.6
+Fri, 17 Apr 2026 15:14:57 GMT
+
+_Version update only_
+
+## 5.3.5
+Thu, 09 Apr 2026 00:15:07 GMT
+
+_Version update only_
+
+## 5.3.4
+Tue, 31 Mar 2026 15:14:14 GMT
+
+_Version update only_
+
+## 5.3.3
+Wed, 25 Feb 2026 00:34:30 GMT
+
+_Version update only_
+
+## 5.3.2
+Tue, 24 Feb 2026 01:13:27 GMT
+
+_Version update only_
+
+## 5.3.1
+Fri, 20 Feb 2026 00:15:04 GMT
+
+### Patches
+
+- Add `"node"` condition before `"import"` in the `"exports"` map so that Node.js uses the CJS output (which handles extensionless imports), while bundlers still use ESM via `"import"`. Fixes https://github.com/microsoft/rushstack/issues/5644.
+
+## 5.3.0
+Thu, 19 Feb 2026 00:04:53 GMT
+
+### Minor changes
+
+- Normalize package layout. CommonJS is now under `lib-commonjs`, DTS is now under `lib-dts`, and ESM is now under `lib-esm`. Imports to `lib` still work as before, handled by the `"exports"` field in `package.json`.
+
+## 5.2.0
+Wed, 04 Feb 2026 16:13:27 GMT
+
+### Minor changes
+
+- Remove `abstract` modifier from `CommandLineParser` class to allow direct instantiation. Remove redundant `_actions` array field.
 
 ## 5.1.7
 Wed, 07 Jan 2026 01:12:25 GMT

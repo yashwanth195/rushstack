@@ -63,6 +63,7 @@ import { InitSubspaceAction } from './actions/InitSubspaceAction';
 import { RushAlerts } from '../utilities/RushAlerts';
 import { initializeDotEnv } from '../logic/dotenv';
 import { measureAsyncFn } from '../utilities/performance';
+import { EnvironmentVariableNames } from '../api/EnvironmentConfiguration';
 
 /**
  * Options for `RushCommandLineParser`.
@@ -218,6 +219,12 @@ export class RushCommandLineParser extends CommandLineParser {
       if (arg === '-q' || arg === '--quiet' || arg === '--json') {
         return true;
       }
+    }
+
+    const quietModeValue: string | undefined =
+      process.env[EnvironmentVariableNames.RUSH_QUIET_MODE];
+    if (quietModeValue === '1' || quietModeValue === 'true') {
+      return true;
     }
 
     return false;
@@ -435,12 +442,11 @@ export class RushCommandLineParser extends CommandLineParser {
     commandLineConfiguration: CommandLineConfiguration,
     command: IGlobalCommandConfig
   ): void {
-    if (
-      command.name === RushConstants.buildCommandName ||
-      command.name === RushConstants.rebuildCommandName
-    ) {
+    const { name, shellCommand, autoinstallerName, providedByPlugin } = command;
+
+    if (name === RushConstants.buildCommandName || name === RushConstants.rebuildCommandName) {
       throw new Error(
-        `${RushConstants.commandLineFilename} defines a command "${command.name}" using ` +
+        `${RushConstants.commandLineFilename} defines a command "${name}" using ` +
           `the command kind "${RushConstants.globalCommandKind}". This command can only be designated as a command ` +
           `kind "${RushConstants.bulkCommandKind}" or "${RushConstants.phasedCommandKind}".`
       );
@@ -453,8 +459,9 @@ export class RushCommandLineParser extends CommandLineParser {
       new GlobalScriptAction({
         ...sharedCommandOptions,
 
-        shellCommand: command.shellCommand,
-        autoinstallerName: command.autoinstallerName
+        shellCommand,
+        autoinstallerName,
+        providedByPlugin
       })
     );
   }
@@ -466,27 +473,39 @@ export class RushCommandLineParser extends CommandLineParser {
     const baseCommandOptions: IBaseScriptActionOptions<IPhasedCommandConfig> =
       this._getSharedCommandActionOptions(commandLineConfiguration, command);
 
+    const {
+      enableParallelism,
+      incremental = false,
+      disableBuildCache = false,
+      allowOversubscription = true,
+      phases: initialPhases,
+      originalPhases,
+      watchPhases,
+      watchDebounceMs = RushConstants.defaultWatchDebounceMs,
+      alwaysWatch,
+      alwaysInstall
+    } = command;
     this.addAction(
       new PhasedScriptAction({
         ...baseCommandOptions,
 
-        enableParallelism: command.enableParallelism,
-        incremental: command.incremental || false,
-        disableBuildCache: command.disableBuildCache || false,
+        enableParallelism,
+        incremental,
+        disableBuildCache,
 
         // The Async.forEachAsync() API defaults allowOversubscription=false, whereas Rush historically
         // defaults allowOversubscription=true to favor faster builds rather than strictly staying below
         // the CPU limit.
-        allowOversubscription: command.allowOversubscription ?? true,
+        allowOversubscription,
 
-        initialPhases: command.phases,
-        originalPhases: command.originalPhases,
-        watchPhases: command.watchPhases,
-        watchDebounceMs: command.watchDebounceMs ?? RushConstants.defaultWatchDebounceMs,
+        initialPhases,
+        originalPhases,
+        watchPhases,
+        watchDebounceMs,
         phases: commandLineConfiguration.phases,
 
-        alwaysWatch: command.alwaysWatch,
-        alwaysInstall: command.alwaysInstall
+        alwaysWatch,
+        alwaysInstall
       })
     );
   }

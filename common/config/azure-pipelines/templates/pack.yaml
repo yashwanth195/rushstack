@@ -1,0 +1,10 @@
+steps:
+  - template: /common/config/azure-pipelines/templates/install-run-rush.yaml@self
+    parameters:
+      Arguments: >
+        publish
+        --publish
+        --pack
+        --include-all
+        --release-folder $(Build.ArtifactStagingDirectory)/packages
+      DisplayName: 'Rush Pack'

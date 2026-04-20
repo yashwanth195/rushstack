@@ -16,7 +16,7 @@
    * path segment in the "$schema" field for all your Rush config files.  This will ensure
    * correct error-underlining and tab-completion for editors such as VS Code.
    */
-  "rushVersion": "5.166.0",
+  "rushVersion": "5.175.0",
 
   /**
    * The next field selects which package manager should be installed and determines its version.
@@ -642,6 +642,12 @@
       "shouldPublish": false
     },
     {
+      "packageName": "esm-node-import-test",
+      "projectFolder": "build-tests/esm-node-import-test",
+      "reviewCategory": "tests",
+      "shouldPublish": false
+    },
+    {
       "packageName": "eslint-bulk-suppressions-test",
       "projectFolder": "build-tests/eslint-bulk-suppressions-test",
       "reviewCategory": "tests",
@@ -681,6 +687,12 @@
     {
       "packageName": "package-extractor-test-04",
       "projectFolder": "build-tests/package-extractor-test-04",
+      "reviewCategory": "tests",
+      "shouldPublish": false
+    },
+    {
+      "packageName": "package-extractor-test-05",
+      "projectFolder": "build-tests/package-extractor-test-05",
       "reviewCategory": "tests",
       "shouldPublish": false
     },
@@ -1145,6 +1157,12 @@
       "shouldPublish": true
     },
     {
+      "packageName": "@rushstack/heft-static-asset-typings-plugin",
+      "projectFolder": "heft-plugins/heft-static-asset-typings-plugin",
+      "reviewCategory": "libraries",
+      "shouldPublish": true
+    },
+    {
       "packageName": "@rushstack/heft-storybook-plugin",
       "projectFolder": "heft-plugins/heft-storybook-plugin",
       "reviewCategory": "libraries",
@@ -1573,6 +1591,12 @@
     {
       "packageName": "@rushstack/rush-mcp-docs-plugin",
       "projectFolder": "rush-plugins/rush-mcp-docs-plugin",
+      "reviewCategory": "libraries",
+      "shouldPublish": true
+    },
+    {
+      "packageName": "@rushstack/rush-published-versions-json-plugin",
+      "projectFolder": "rush-plugins/rush-published-versions-json-plugin",
       "reviewCategory": "libraries",
       "shouldPublish": true
     },

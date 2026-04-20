@@ -1,6 +1,144 @@
 # Change Log - @rushstack/package-extractor
 
-This log was last generated on Fri, 30 Jan 2026 01:16:13 GMT and should not be manually modified.
+This log was last generated on Mon, 20 Apr 2026 15:15:24 GMT and should not be manually modified.
+
+## 0.13.4
+Mon, 20 Apr 2026 15:15:24 GMT
+
+_Version update only_
+
+## 0.13.3
+Sat, 18 Apr 2026 03:47:10 GMT
+
+_Version update only_
+
+## 0.13.2
+Sat, 18 Apr 2026 00:15:16 GMT
+
+### Patches
+
+- Bump semver.
+
+## 0.13.1
+Fri, 17 Apr 2026 15:14:57 GMT
+
+_Version update only_
+
+## 0.13.0
+Tue, 14 Apr 2026 15:19:52 GMT
+
+### Minor changes
+
+- Update `_collectFoldersAsync` to process all starting folders in a single shared queue instead of serially. Add `pnpmNodeModulesHoistingEnabled` option to `IExtractorSubspace` to skip virtual store hoisting lookup when hoisting is disabled.
+
+## 0.12.15
+Fri, 10 Apr 2026 22:46:34 GMT
+
+_Version update only_
+
+## 0.12.14
+Thu, 09 Apr 2026 00:15:07 GMT
+
+_Version update only_
+
+## 0.12.13
+Sat, 04 Apr 2026 00:14:00 GMT
+
+_Version update only_
+
+## 0.12.12
+Thu, 02 Apr 2026 00:14:38 GMT
+
+_Version update only_
+
+## 0.12.11
+Wed, 01 Apr 2026 15:13:38 GMT
+
+_Version update only_
+
+## 0.12.10
+Tue, 31 Mar 2026 15:14:15 GMT
+
+_Version update only_
+
+## 0.12.9
+Wed, 25 Mar 2026 01:00:26 GMT
+
+### Patches
+
+- preventing duplicate-copy conflicts across npm-packlist versions
+
+## 0.12.8
+Mon, 09 Mar 2026 15:14:08 GMT
+
+### Patches
+
+- Bump `minimatch` version from `10.2.1` to `10.2.3` to address CVE-2026-27903.
+
+## 0.12.7
+Wed, 25 Feb 2026 21:39:42 GMT
+
+_Version update only_
+
+## 0.12.6
+Wed, 25 Feb 2026 00:34:29 GMT
+
+_Version update only_
+
+## 0.12.5
+Tue, 24 Feb 2026 01:13:27 GMT
+
+_Version update only_
+
+## 0.12.4
+Mon, 23 Feb 2026 00:42:21 GMT
+
+_Version update only_
+
+## 0.12.3
+Fri, 20 Feb 2026 16:14:49 GMT
+
+### Patches
+
+- Bump minimatch from 10.1.2 to 10.2.1
+
+## 0.12.2
+Fri, 20 Feb 2026 00:15:04 GMT
+
+### Patches
+
+- Add `"node"` condition before `"import"` in the `"exports"` map so that Node.js uses the CJS output (which handles extensionless imports), while bundlers still use ESM via `"import"`. Fixes https://github.com/microsoft/rushstack/issues/5644.
+
+## 0.12.1
+Thu, 19 Feb 2026 01:30:06 GMT
+
+### Patches
+
+- Fix an issue where `lib-` folders were excluded from publish.
+
+## 0.12.0
+Thu, 19 Feb 2026 00:04:53 GMT
+
+### Minor changes
+
+- Normalize package layout. CommonJS is now under `lib-commonjs`, DTS is now under `lib-dts`, and ESM is now under `lib-esm`. Imports to `lib` still work as before, handled by the `"exports"` field in `package.json`.
+
+## 0.11.16
+Sat, 07 Feb 2026 01:13:26 GMT
+
+_Version update only_
+
+## 0.11.15
+Wed, 04 Feb 2026 20:42:47 GMT
+
+### Patches
+
+- Update minimatch dependency from 10.0.3 to 10.1.2
+
+## 0.11.14
+Wed, 04 Feb 2026 16:13:27 GMT
+
+_Version update only_
 
 ## 0.11.13
 Fri, 30 Jan 2026 01:16:13 GMT

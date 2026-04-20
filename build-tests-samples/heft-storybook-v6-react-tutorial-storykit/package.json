@@ -3,9 +3,29 @@
   "version": "0.0.0",
   "private": true,
   "description": "Storybook build dependencies for heft-storybook-v6-react-tutorial",
-  "main": "lib-commonjs/index.js",
-  "module": "lib/index.js",
-  "types": "lib/index.d.ts",
+  "main": "./lib-commonjs/index.js",
+  "module": "./lib-esm/index.js",
+  "types": "./lib-dts/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib-dts/index.d.ts",
+      "import": "./lib-esm/index.js",
+      "require": "./lib-commonjs/index.js"
+    },
+    "./lib/*": {
+      "types": "./lib-dts/*",
+      "import": "./lib-esm/*",
+      "require": "./lib-commonjs/*"
+    },
+    "./package.json": "./package.json"
+  },
+  "typesVersions": {
+    "*": {
+      "lib/*": [
+        "lib-dts/*"
+      ]
+    }
+  },
   "scripts": {
     "build": "heft build --clean",
     "_phase:build": "heft run --only build -- --clean"
@@ -20,7 +40,7 @@
     "@storybook/core-events": "~6.4.18",
     "@storybook/react": "~6.4.18",
     "@storybook/theming": "~6.4.18",
-    "@types/heft-jest": "1.0.1",
+    "@types/jest": "30.0.0",
     "@types/node": "20.17.19",
     "@types/react-dom": "17.0.25",
     "@types/react": "17.0.74",

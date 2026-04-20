@@ -1,6 +1,120 @@
 # Change Log - @rushstack/heft-node-rig
 
-This log was last generated on Fri, 30 Jan 2026 01:16:13 GMT and should not be manually modified.
+This log was last generated on Mon, 20 Apr 2026 15:15:24 GMT and should not be manually modified.
+
+## 2.11.38
+Mon, 20 Apr 2026 15:15:24 GMT
+
+_Version update only_
+
+## 2.11.37
+Sat, 18 Apr 2026 03:47:10 GMT
+
+_Version update only_
+
+## 2.11.36
+Sat, 18 Apr 2026 00:15:17 GMT
+
+_Version update only_
+
+## 2.11.35
+Fri, 17 Apr 2026 15:14:57 GMT
+
+_Version update only_
+
+## 2.11.34
+Wed, 15 Apr 2026 17:59:12 GMT
+
+### Patches
+
+- Replace the `@types/heft-jest` types package with `@types/jest`. The `@types/jest` package now correctly includes the mocking typings.
+
+## 2.11.33
+Tue, 14 Apr 2026 01:25:46 GMT
+
+_Version update only_
+
+## 2.11.32
+Fri, 10 Apr 2026 22:46:34 GMT
+
+_Version update only_
+
+## 2.11.31
+Thu, 09 Apr 2026 00:15:07 GMT
+
+_Version update only_
+
+## 2.11.30
+Sat, 04 Apr 2026 00:14:00 GMT
+
+_Version update only_
+
+## 2.11.29
+Wed, 01 Apr 2026 15:13:38 GMT
+
+_Version update only_
+
+## 2.11.28
+Tue, 31 Mar 2026 15:14:15 GMT
+
+_Version update only_
+
+## 2.11.27
+Mon, 09 Mar 2026 15:14:08 GMT
+
+_Version update only_
+
+## 2.11.26
+Wed, 25 Feb 2026 21:39:42 GMT
+
+_Version update only_
+
+## 2.11.25
+Wed, 25 Feb 2026 00:34:29 GMT
+
+_Version update only_
+
+## 2.11.24
+Tue, 24 Feb 2026 01:13:27 GMT
+
+_Version update only_
+
+## 2.11.23
+Mon, 23 Feb 2026 00:42:21 GMT
+
+_Version update only_
+
+## 2.11.22
+Fri, 20 Feb 2026 16:14:49 GMT
+
+_Version update only_
+
+## 2.11.21
+Fri, 20 Feb 2026 00:15:04 GMT
+
+_Version update only_
+
+## 2.11.20
+Thu, 19 Feb 2026 00:04:52 GMT
+
+### Patches
+
+- Add `sideEffects` field to package.json.
+
+## 2.11.19
+Sat, 07 Feb 2026 01:13:26 GMT
+
+_Version update only_
+
+## 2.11.18
+Wed, 04 Feb 2026 20:42:47 GMT
+
+_Version update only_
+
+## 2.11.17
+Wed, 04 Feb 2026 16:13:27 GMT
+
+_Version update only_
 
 ## 2.11.16
 Fri, 30 Jan 2026 01:16:13 GMT

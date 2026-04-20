@@ -108,6 +108,12 @@ export interface IExtractorSubspace {
    * transform the package.json prior to extraction.
    */
   transformPackageJson?: (packageJson: IPackageJson) => IPackageJson;
+  /**
+   * Whether PNPM hoisting is enabled for this subspace. When set to `false`,
+   * the extractor will skip looking for hoisted packages in the PNPM virtual store, since no
+   * hoisting symlinks will exist. Default is `true`.
+   */
+  pnpmNodeModulesHoistingEnabled?: boolean;
 }
 
 interface IExtractorState {
@@ -334,7 +340,20 @@ export class PackageExtractor {
       }
     );
     const npmPackFiles: string[] = await walkerPromise;
-    return npmPackFiles;
+
+    // npm-packlist@v5 (uses glob@v8) returns "./dist/index.js" for pattern: "./dist/index.js",
+    // whereas npm-packlist@v2 (uses glob@v7) returns an empty array.
+    // This may cause duplicate files in the result list, leading to copying conflicts
+    // in the AssetHandler.ts includeAssetAsync method.
+    //
+    // Temporary fix: normalize the file paths to be relative to the package root, and remove duplicates.
+    //
+    // TODO: A better long-term fix is to replace "npm-packlist" with "@pnpm/fs.packlist", notes here:
+    //       https://github.com/microsoft/rushstack/pull/5720/changes#r2984873283
+    const normalizedFiles: string[] = Array.from(
+      new Set(npmPackFiles.map((file) => path.posix.normalize(file)))
+    );
+    return normalizedFiles;
   }
 
   /**
@@ -476,10 +495,12 @@ export class PackageExtractor {
       }
     }
 
+    const startingFolders: string[] = [];
     for (const { projectName, projectFolder } of includedProjectsSet) {
       terminal.writeLine(Colorize.cyan(`Analyzing project: ${projectName}`));
-      await this._collectFoldersAsync(projectFolder, options, state);
+      startingFolders.push(projectFolder);
     }
+    await this._collectFoldersAsync(startingFolders, options, state);
 
     if (!createArchiveOnly) {
       terminal.writeLine(`Copying folders to target folder "${targetRootFolder}"`);
@@ -511,14 +532,14 @@ export class PackageExtractor {
    * Recursively crawl the node_modules dependencies and collect the result in IExtractorState.foldersToCopy.
    */
   private async _collectFoldersAsync(
-    packageJsonFolder: string,
+    packageJsonFolders: string[],
     options: IExtractorOptions,
     state: IExtractorState
   ): Promise<void> {
     const { terminal, subspaces } = options;
     const { projectConfigurationsByPath } = state;
 
-    const packageJsonFolderPathQueue: AsyncQueue<string> = new AsyncQueue([packageJsonFolder]);
+    const packageJsonFolderPathQueue: AsyncQueue<string> = new AsyncQueue(packageJsonFolders);
 
     await Async.forEachAsync(
       packageJsonFolderPathQueue,
@@ -611,9 +632,15 @@ export class PackageExtractor {
 
         // Replicate the links to the virtual store. Note that if the package has not been hoisted by
         // PNPM, the package will not be resolvable from here.
-        // Only apply this logic for packages that were actually installed under the common/temp folder.
+        // Only apply this logic for packages that were actually installed under the common/temp folder,
+        // and only when hoisting is enabled for the subspace.
         const realPnpmInstallFolder: string | undefined = targetSubspace?.pnpmInstallFolder;
-        if (realPnpmInstallFolder && Path.isUnder(packageJsonFolderPath, realPnpmInstallFolder)) {
+        const hoistingEnabled: boolean = targetSubspace?.pnpmNodeModulesHoistingEnabled !== false;
+        if (
+          hoistingEnabled &&
+          realPnpmInstallFolder &&
+          Path.isUnder(packageJsonFolderPath, realPnpmInstallFolder)
+        ) {
           try {
             // The PNPM virtual store links are created in this folder.  We will resolve the current package
             // from that location and collect any additional links encountered along the way.
