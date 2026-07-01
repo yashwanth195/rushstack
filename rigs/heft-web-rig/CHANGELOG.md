@@ -1,6 +1,43 @@
 # Change Log - @rushstack/heft-web-rig
 
-This log was last generated on Mon, 20 Apr 2026 15:15:24 GMT and should not be manually modified.
+This log was last generated on Sat, 13 Jun 2026 00:16:19 GMT and should not be manually modified.
+
+## 1.4.25
+Sat, 13 Jun 2026 00:16:19 GMT
+
+_Version update only_
+
+## 1.4.24
+Wed, 10 Jun 2026 00:15:42 GMT
+
+_Version update only_
+
+## 1.4.23
+Mon, 08 Jun 2026 15:15:50 GMT
+
+_Version update only_
+
+## 1.4.22
+Tue, 02 Jun 2026 07:30:20 GMT
+
+_Version update only_
+
+## 1.4.21
+Fri, 29 May 2026 18:25:51 GMT
+
+_Version update only_
+
+## 1.4.20
+Thu, 30 Apr 2026 00:15:22 GMT
+
+### Patches
+
+- Bump postcss@~8.5.10 to address CVE GHSA-qx2v-qp2m-jg93
+
+## 1.4.19
+Mon, 20 Apr 2026 23:31:13 GMT
+
+_Version update only_
 
 ## 1.4.18
 Mon, 20 Apr 2026 15:15:24 GMT
