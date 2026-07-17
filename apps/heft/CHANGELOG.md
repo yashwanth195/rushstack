@@ -1,6 +1,18 @@
 # Change Log - @rushstack/heft
 
-This log was last generated on Sat, 13 Jun 2026 00:16:18 GMT and should not be manually modified.
+This log was last generated on Fri, 17 Jul 2026 00:15:59 GMT and should not be manually modified.
+
+## 1.2.21
+Fri, 17 Jul 2026 00:15:59 GMT
+
+### Patches
+
+- Replace `@override` with the `override` keyword.
+
+## 1.2.20
+Thu, 16 Jul 2026 00:16:13 GMT
+
+_Version update only_
 
 ## 1.2.19
 Sat, 13 Jun 2026 00:16:18 GMT
