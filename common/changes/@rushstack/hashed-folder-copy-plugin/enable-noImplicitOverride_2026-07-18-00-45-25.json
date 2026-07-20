@@ -3,9 +3,9 @@
     {
       "comment": "",
       "type": "none",
-      "packageName": "@microsoft/rush"
+      "packageName": "@rushstack/hashed-folder-copy-plugin"
     }
   ],
-  "packageName": "@microsoft/rush",
+  "packageName": "@rushstack/hashed-folder-copy-plugin",
   "email": "iclanton@users.noreply.github.com"
 }

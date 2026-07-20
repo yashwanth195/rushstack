@@ -9,7 +9,11 @@ import { FileSystem, Sort, Path } from '@rushstack/node-core-library';
 
 import { BaseWorkspaceFile } from '../base/BaseWorkspaceFile';
 import { PNPM_SHRINKWRAP_YAML_FORMAT } from './PnpmYamlCommon';
-import type { IPnpmPackageExtension, IPnpmPeerDependencyRules } from './PnpmOptionsConfiguration';
+import type {
+  IPnpmPackageExtension,
+  IPnpmPeerDependencyRules,
+  PnpmTrustPolicy
+} from './PnpmOptionsConfiguration';
 
 /**
  * This interface represents the raw pnpm-workspace.YAML file
@@ -72,6 +76,32 @@ interface IPnpmWorkspaceYaml {
    */
   patchedDependencies: Record<string, string> | undefined;
   /**
+   * Optional dependencies whose names are listed here are skipped during installation. In pnpm 11+
+   * this replaces the `pnpm.ignoredOptionalDependencies` field of `package.json`, which pnpm no
+   * longer reads.
+   * (SUPPORTED ONLY IN PNPM 9.0.0 AND NEWER)
+   */
+  ignoredOptionalDependencies: string[] | undefined;
+  /**
+   * The trust policy applied when installing packages. In pnpm 11+ this replaces the
+   * `pnpm.trustPolicy` field of `package.json`, which pnpm no longer reads.
+   * (SUPPORTED ONLY IN PNPM 10.21.0 AND NEWER)
+   */
+  trustPolicy: PnpmTrustPolicy | undefined;
+  /**
+   * Package selectors excluded from the trust policy check. In pnpm 11+ this replaces the
+   * `pnpm.trustPolicyExclude` field of `package.json`, which pnpm no longer reads.
+   * (SUPPORTED ONLY IN PNPM 10.22.0 AND NEWER)
+   */
+  trustPolicyExclude: string[] | undefined;
+  /**
+   * Ignore the trust policy check for packages published more than this many minutes ago. In
+   * pnpm 11+ this replaces the `pnpm.trustPolicyIgnoreAfter` field of `package.json`, which pnpm
+   * no longer reads.
+   * (SUPPORTED ONLY IN PNPM 10.27.0 AND NEWER)
+   */
+  trustPolicyIgnoreAfter: number | undefined;
+  /**
    * The minimum number of minutes that must pass after a version is published before pnpm will install it.
    * (SUPPORTED ONLY IN PNPM 10.16.0 AND NEWER)
    */
@@ -97,6 +127,10 @@ export class PnpmWorkspaceFile extends BaseWorkspaceFile {
   public peerDependencyRules: IPnpmWorkspaceYaml['peerDependencyRules'];
   public allowedDeprecatedVersions: IPnpmWorkspaceYaml['allowedDeprecatedVersions'];
   public patchedDependencies: IPnpmWorkspaceYaml['patchedDependencies'];
+  public ignoredOptionalDependencies: IPnpmWorkspaceYaml['ignoredOptionalDependencies'];
+  public trustPolicy: IPnpmWorkspaceYaml['trustPolicy'];
+  public trustPolicyExclude: IPnpmWorkspaceYaml['trustPolicyExclude'];
+  public trustPolicyIgnoreAfter: IPnpmWorkspaceYaml['trustPolicyIgnoreAfter'];
   public minimumReleaseAge: IPnpmWorkspaceYaml['minimumReleaseAge'];
   public minimumReleaseAgeExclude: IPnpmWorkspaceYaml['minimumReleaseAgeExclude'];
 
@@ -114,18 +148,66 @@ export class PnpmWorkspaceFile extends BaseWorkspaceFile {
   }
 
   /**
-   * Reads the `patchedDependencies` field from an existing `pnpm-workspace.yaml` file.
+   * Reads an existing `pnpm-workspace.yaml` file and returns a {@link PnpmWorkspaceFile} whose
+   * settings properties are populated from its contents.
+   *
+   * @remarks
+   * The workspace `packages` list is not loaded; the returned instance is intended for reading the
+   * generated pnpm settings (such as `allowBuilds` and `patchedDependencies`), not for
+   * re-serialization.
+   *
    * @param workspaceYamlFilename - The path to the `pnpm-workspace.yaml` file
    */
-  public static async loadPatchedDependenciesAsync(
-    workspaceYamlFilename: string
-  ): Promise<Record<string, string> | undefined> {
-    const workspaceYamlContent: string = await FileSystem.readFileAsync(workspaceYamlFilename);
+  public static async tryLoadAsync(workspaceYamlFilename: string): Promise<PnpmWorkspaceFile | undefined> {
+    let workspaceYamlContent: string;
+    try {
+      workspaceYamlContent = await FileSystem.readFileAsync(workspaceYamlFilename);
+    } catch (error) {
+      if (FileSystem.isNotExistError(error)) {
+        return undefined;
+      } else {
+        throw error;
+      }
+    }
+
     const yamlModule: typeof import('js-yaml') = await import('js-yaml');
     const workspaceYaml: IPnpmWorkspaceYaml | undefined = yamlModule.load(workspaceYamlContent) as
       | IPnpmWorkspaceYaml
       | undefined;
-    return workspaceYaml?.patchedDependencies;
+
+    const workspaceFile: PnpmWorkspaceFile = new PnpmWorkspaceFile(workspaceYamlFilename);
+    if (workspaceYaml) {
+      const {
+        catalogs,
+        allowBuilds,
+        overrides,
+        packageExtensions,
+        peerDependencyRules,
+        allowedDeprecatedVersions,
+        patchedDependencies,
+        ignoredOptionalDependencies,
+        trustPolicy,
+        trustPolicyExclude,
+        trustPolicyIgnoreAfter,
+        minimumReleaseAge,
+        minimumReleaseAgeExclude
+      } = workspaceYaml;
+      workspaceFile.catalogs = catalogs;
+      workspaceFile.allowBuilds = allowBuilds;
+      workspaceFile.overrides = overrides;
+      workspaceFile.packageExtensions = packageExtensions;
+      workspaceFile.peerDependencyRules = peerDependencyRules;
+      workspaceFile.allowedDeprecatedVersions = allowedDeprecatedVersions;
+      workspaceFile.patchedDependencies = patchedDependencies;
+      workspaceFile.ignoredOptionalDependencies = ignoredOptionalDependencies;
+      workspaceFile.trustPolicy = trustPolicy;
+      workspaceFile.trustPolicyExclude = trustPolicyExclude;
+      workspaceFile.trustPolicyIgnoreAfter = trustPolicyIgnoreAfter;
+      workspaceFile.minimumReleaseAge = minimumReleaseAge;
+      workspaceFile.minimumReleaseAgeExclude = minimumReleaseAgeExclude;
+    }
+
+    return workspaceFile;
   }
 
   public override addPackage(packagePath: string): void {
@@ -140,9 +222,6 @@ export class PnpmWorkspaceFile extends BaseWorkspaceFile {
   }
 
   protected override async serializeAsync(): Promise<string> {
-    // Ensure stable sort order when serializing
-    Sort.sortSet(this._workspacePackages);
-
     const {
       _workspacePackages: workspacePackages,
       catalogs,
@@ -152,9 +231,15 @@ export class PnpmWorkspaceFile extends BaseWorkspaceFile {
       peerDependencyRules,
       allowedDeprecatedVersions,
       patchedDependencies,
+      ignoredOptionalDependencies,
+      trustPolicy,
+      trustPolicyExclude,
+      trustPolicyIgnoreAfter,
       minimumReleaseAge,
       minimumReleaseAgeExclude
     } = this;
+    // Ensure stable sort order when serializing
+    Sort.sortSet(workspacePackages);
     const workspaceYaml: IPnpmWorkspaceYaml = {
       packages: Array.from(workspacePackages),
       // js-yaml omits mapping entries whose value is `undefined`, so no guard is needed here.
@@ -166,6 +251,10 @@ export class PnpmWorkspaceFile extends BaseWorkspaceFile {
       peerDependencyRules,
       allowedDeprecatedVersions,
       patchedDependencies,
+      ignoredOptionalDependencies,
+      trustPolicy,
+      trustPolicyExclude,
+      trustPolicyIgnoreAfter,
       minimumReleaseAge,
       minimumReleaseAgeExclude
     };
