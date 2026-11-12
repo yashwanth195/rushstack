@@ -193,6 +193,10 @@ export class ShellOperationRunner implements IOperationRunner {
   public getConfigHash(): string {
     return this.#commandForHash;
   }
+
+  public getCommandForExecution(): string {
+    return this.#initialCommand;
+  }
 }
 
 /**

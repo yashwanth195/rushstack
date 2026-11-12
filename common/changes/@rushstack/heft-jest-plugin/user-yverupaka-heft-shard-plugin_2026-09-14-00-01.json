@@ -1,0 +1,15 @@
+{
+  "changes": [
+    {
+      "packageName": "@rushstack/heft-jest-plugin",
+      "comment": "Add managed Jest sharding and collation with portable validated results, V8/Babel coverage merging, consolidated builtin reports, and coverage thresholds enforced once on the merged map. Protect report ownership with content-bound inventories and capture static coverage inputs outside Jest roots, including verified Babel ignore-file exclusions and cache-hit execution-input evidence. The Heft peer range is stamped from the coupled workspace release that supplies parameter-mode preflight and defaultPluginName.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@rushstack/heft-jest-plugin",
+      "comment": "Classify managed suite failures using completion receipts and supervised workers rather than error wording. Supervise the final worker through reporting and expose the whole-suite passWithNoTests policy. Add opt-in collator-owned JUnit with version 3 assertion details and consolidated JSON, preserving failures and fencing publication/cancellation cleanup.",
+      "type": "none"
+    }
+  ],
+  "packageName": "@rushstack/heft-jest-plugin"
+}

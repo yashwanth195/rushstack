@@ -31,11 +31,28 @@ import {
   PathResolutionMethod
 } from '@rushstack/heft-config-file';
 import { FileSystem, Path, Import, JsonFile, Objects, PackageName } from '@rushstack/node-core-library';
+import { parseShardPair, type IShardIdentity } from '@rushstack/heft/lib/sharding/ShardIdentity';
+import type { IShardResultManifest } from '@rushstack/heft/lib/sharding/IShardResultManifest';
+import { invalidateShardResultManifestAsync } from '@rushstack/heft/lib/sharding/ShardResultManifest';
 import type { ITerminal } from '@rushstack/terminal';
 
 import type { IHeftJestReporterOptions } from './HeftJestReporter';
 import { jestResolve } from './JestUtils';
 import { TerminalWritableStream } from './TerminalWritableStream';
+import { configureJestShard, validateManagedJestConfiguration } from './JestShardConfiguration';
+import { createCoverageConfiguration, type IJestCoverage } from './JestCoverage';
+import {
+  JestCoverageCollector,
+  observeCoverageErrorsAsync,
+  registerJestCoverageCollector
+} from './JestCoverageCollector';
+import { JestCompletionCollector, registerManagedJestAttempt } from './JestCompletionEvidence';
+import { withJestManagedExecutionAsync } from './JestManagedRunner';
+import {
+  prepareJestShardExecutionAsync,
+  completeJestShardExecutionAsync,
+  type IJestShardExecution
+} from './JestShardExecution';
 import anythingSchema from './schemas/anything.schema.json';
 
 const jestPluginSymbol: unique symbol = Symbol('heft-jest-plugin');
@@ -99,6 +116,8 @@ export interface IJestPluginOptions {
   findRelatedTests?: string[];
   maxWorkers?: string;
   passWithNoTests?: boolean;
+  shard?: string;
+  shardOutputDirectory?: string;
   silent?: boolean;
   testNamePattern?: string;
   testPathIgnorePatterns?: string;
@@ -196,6 +215,9 @@ export default class JestPlugin implements IHeftTaskPlugin<IJestPluginOptions> {
     );
     const testPathPatternParameter: CommandLineStringParameter =
       parameters.getStringParameter('--test-path-pattern');
+    const shardParameter: CommandLineStringParameter = parameters.getStringParameter('--shard');
+    const shardOutputDirectoryParameter: CommandLineStringParameter =
+      parameters.getStringParameter('--shard-output-directory');
 
     // String lists
     const findRelatedTestsParameter: CommandLineStringListParameter =
@@ -216,8 +238,11 @@ export default class JestPlugin implements IHeftTaskPlugin<IJestPluginOptions> {
         ? Array.from(findRelatedTestsParameter.values)
         : pluginOptions?.findRelatedTests,
       maxWorkers: maxWorkersParameter.value || pluginOptions?.maxWorkers,
-      // Default to true and always pass with no tests
-      passWithNoTests: true,
+      // Preserve the existing default while allowing an explicit false value. Managed shards
+      // still force Jest's per-partition flag below; the collator applies this whole-suite policy.
+      passWithNoTests: pluginOptions?.passWithNoTests ?? true,
+      shard: shardParameter.value ?? pluginOptions?.shard,
+      shardOutputDirectory: shardOutputDirectoryParameter.value ?? pluginOptions?.shardOutputDirectory,
       silent: silentParameter.value || pluginOptions?.silent,
       testNamePattern: testNamePatternParameter.value || pluginOptions?.testNamePattern,
       testPathIgnorePatterns: testPathIgnorePatternsParameter.value || pluginOptions?.testPathIgnorePatterns,
@@ -227,8 +252,28 @@ export default class JestPlugin implements IHeftTaskPlugin<IJestPluginOptions> {
       enableNodeEnvManagement: pluginOptions?.enableNodeEnvManagement ?? true
     };
 
+    if (options.shard !== undefined) {
+      parseShardPair(options.shard);
+      // apply() runs before this phase's clean operation, unlike the run hook.
+      if (parameters.clean) {
+        throw new Error(
+          'Do not combine "--clean" with "--shard". Clean once in a separate preparation phase.'
+        );
+      }
+      if (parameters.watch) {
+        throw new Error('Watch mode is not supported with "--shard". Use an unsharded watch run.');
+      }
+      if (options.updateSnapshots) {
+        throw new Error(
+          'The "--update-snapshots" parameter cannot be combined with "--shard". Update snapshots in an unsharded run.'
+        );
+      }
+    } else if (options.shardOutputDirectory !== undefined) {
+      throw new Error('"--shard-output-directory" requires "--shard".');
+    }
+
     taskSession.hooks.run.tapPromise(PLUGIN_NAME, async (runOptions: IHeftTaskRunHookOptions) => {
-      await this.#runJestAsync(taskSession, heftConfiguration, options);
+      await this.#runJestAsync(taskSession, heftConfiguration, options, runOptions.abortSignal);
     });
 
     taskSession.hooks.runIncremental.tapPromise(
@@ -250,51 +295,155 @@ export default class JestPlugin implements IHeftTaskPlugin<IJestPluginOptions> {
   async #runJestAsync(
     taskSession: IHeftTaskSession,
     heftConfiguration: HeftConfiguration,
-    options: IJestPluginOptions
+    options: IJestPluginOptions,
+    abortSignal: AbortSignal
   ): Promise<void> {
     const logger: IScopedLogger = taskSession.logger;
     const terminal: ITerminal = logger.terminal;
 
-    this.#setNodeEnvIfRequested(options, logger);
-
-    const { getVersion, runCLI } = await import(`@jest/core`);
-    terminal.writeLine(`Using Jest version ${getVersion()}`);
-
     const buildFolderPath: string = heftConfiguration.buildFolderPath;
-    const jestArgv: Config.Argv | undefined = await this.#createJestArgvAsync(
-      taskSession,
-      heftConfiguration,
-      options,
-      false
-    );
-    if (!jestArgv) {
-      return;
-    }
+    const managedExecution: IJestShardExecution | undefined =
+      options.shardOutputDirectory !== undefined
+        ? await prepareJestShardExecutionAsync(
+            buildFolderPath,
+            options.shardOutputDirectory,
+            parseShardPair(options.shard!),
+            process.env.RUSH_SHARD_GENERATION,
+            path
+              .relative(heftConfiguration.tempFolderPath, taskSession.tempFolderPath)
+              .split(path.sep)
+              .join('/'),
+            options.passWithNoTests,
+            abortSignal,
+            { project: heftConfiguration.projectPackageJson.name, task: taskSession.taskName }
+          )
+        : undefined;
+    const coverageCollector: JestCoverageCollector | undefined = managedExecution
+      ? new JestCoverageCollector()
+      : undefined;
+    const completionCollector: JestCompletionCollector | undefined = coverageCollector
+      ? new JestCompletionCollector(coverageCollector.attempt)
+      : undefined;
+    let releaseManagedAttempt: (() => void) | undefined;
+    let releaseCoverageCollector: (() => void) | undefined;
+    let completedManifest: IShardResultManifest | undefined;
+    try {
+      if (managedExecution) abortSignal.throwIfAborted();
 
-    const {
-      // Config.Argv is weakly typed.  After updating the jestArgv object, it's a good idea to inspect "globalConfig"
-      // in the debugger to validate that your changes are being applied as expected.
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      globalConfig,
-      results: jestResults
-    } = await runCLI(jestArgv, [buildFolderPath]);
+      let jestResults: AggregatedResult;
+      try {
+        this.#setNodeEnvIfRequested(options, logger);
+        const { getVersion, runCLI } = await import(`@jest/core`);
+        terminal.writeLine(`Using Jest version ${getVersion()}`);
 
-    this.#resetNodeEnv();
+        const jestArgv: Config.Argv | undefined = await this.#createJestArgvAsync(
+          taskSession,
+          heftConfiguration,
+          options,
+          false,
+          coverageCollector,
+          completionCollector
+        );
+        if (!jestArgv) {
+          if (managedExecution) throw new Error('Managed Jest sharding requires a valid Jest configuration.');
+          return;
+        }
+        if (coverageCollector) {
+          try {
+            releaseManagedAttempt = registerManagedJestAttempt(
+              jestArgv.cacheDirectory!,
+              completionCollector!.attempt,
+              completionCollector
+            );
+            releaseCoverageCollector = registerJestCoverageCollector(
+              jestArgv.cacheDirectory!,
+              coverageCollector
+            );
+          } catch (error) {
+            releaseManagedAttempt?.();
+            releaseManagedAttempt = undefined;
+            throw error;
+          }
+        }
 
-    if (jestResults.numFailedTests > 0) {
-      logger.emitError(
-        new Error(
-          `${jestResults.numFailedTests} Jest test${jestResults.numFailedTests > 1 ? 's' : ''} failed`
-        )
-      );
-    } else if (jestResults.numFailedTestSuites > 0) {
-      logger.emitError(
-        new Error(
-          `${jestResults.numFailedTestSuites} Jest test suite${
-            jestResults.numFailedTestSuites > 1 ? 's' : ''
-          } failed`
-        )
-      );
+        ({ results: jestResults } = coverageCollector
+          ? await withJestManagedExecutionAsync(completionCollector!.attempt, abortSignal, () =>
+              observeCoverageErrorsAsync(coverageCollector, () => runCLI(jestArgv, [buildFolderPath]))
+            )
+          : await runCLI(jestArgv, [buildFolderPath]));
+      } finally {
+        this.#resetNodeEnv();
+      }
+
+      if (managedExecution) {
+        if (logger.hasErrors) {
+          throw new Error(
+            'Jest reported an infrastructure error; no completed shard result can be committed.'
+          );
+        }
+        completionCollector!.validate(jestResults);
+        const coverage: IJestCoverage = await coverageCollector!.completeAsync(jestResults, buildFolderPath);
+        // Cleanup is part of completing the operation. No fallible evidence cleanup may follow the commit marker.
+        await coverageCollector!.disposeAsync();
+        await completionCollector!.disposeAsync();
+        completedManifest = await completeJestShardExecutionAsync(
+          managedExecution,
+          jestResults,
+          abortSignal,
+          coverage,
+          completionCollector!.completedTestFiles
+        );
+      } else if (jestResults.numFailedTests > 0) {
+        logger.emitError(
+          new Error(
+            `${jestResults.numFailedTests} Jest test${jestResults.numFailedTests > 1 ? 's' : ''} failed`
+          )
+        );
+      } else if (jestResults.numFailedTestSuites > 0) {
+        logger.emitError(
+          new Error(
+            `${jestResults.numFailedTestSuites} Jest test suite${
+              jestResults.numFailedTestSuites > 1 ? 's' : ''
+            } failed`
+          )
+        );
+      } else if (!jestResults.success || jestResults.wasInterrupted || jestResults.runExecError) {
+        logger.emitError(new Error('Jest did not complete successfully. See the Jest output for details.'));
+      }
+    } finally {
+      let cleanupCompleted: boolean = false;
+      try {
+        try {
+          try {
+            await coverageCollector?.disposeAsync();
+          } finally {
+            await completionCollector?.disposeAsync();
+          }
+        } finally {
+          try {
+            releaseCoverageCollector?.();
+          } finally {
+            releaseManagedAttempt?.();
+          }
+        }
+        if (managedExecution && completedManifest) {
+          // All asynchronous cleanup is complete, but the output claim is still held.
+          abortSignal.throwIfAborted();
+          terminal.writeLine(
+            `Shard ${options.shard}: ${completedManifest.diagnosticCount} diagnostics, ` +
+              `${completedManifest.itemCount} tests executed (verdict deferred to collator)`
+          );
+        }
+        cleanupCompleted = true;
+      } finally {
+        try {
+          if (!cleanupCompleted && managedExecution && completedManifest) {
+            await invalidateShardResultManifestAsync(managedExecution.outputFolderPath);
+          }
+        } finally {
+          managedExecution?.lock.release();
+        }
+      }
     }
   }
 
@@ -536,10 +685,15 @@ export default class JestPlugin implements IHeftTaskPlugin<IJestPluginOptions> {
     taskSession: IHeftTaskSession,
     heftConfiguration: HeftConfiguration,
     options: IJestPluginOptions,
-    watch: boolean
+    watch: boolean,
+    coverageCollector?: JestCoverageCollector,
+    completionCollector?: JestCompletionCollector
   ): Promise<Config.Argv | undefined> {
     const logger: IScopedLogger = taskSession.logger;
     const { terminal } = logger;
+
+    const shardIdentity: IShardIdentity | undefined =
+      options.shard !== undefined ? parseShardPair(options.shard) : undefined;
 
     const buildFolderPath: string = heftConfiguration.buildFolderPath;
     const projectRelativeFilePath: string = options?.configurationPath ?? JEST_CONFIGURATION_LOCATION;
@@ -571,6 +725,24 @@ export default class JestPlugin implements IHeftTaskPlugin<IJestPluginOptions> {
         heftConfiguration.buildFolderPath,
         heftConfiguration.rigConfig
       );
+    }
+
+    const managedShard: boolean = options.shardOutputDirectory !== undefined;
+    if (managedShard) {
+      if (options.disableCodeCoverage) {
+        jestConfig.collectCoverage = false;
+      }
+      validateManagedJestConfiguration(jestConfig);
+      coverageCollector!.configuration = createCoverageConfiguration(jestConfig, buildFolderPath);
+      // The builtin CoverageReporter still collects/remaps the complete map. Reporting and
+      // thresholds belong exclusively to the collator, never to an individual partition.
+      jestConfig.coverageThreshold = undefined;
+      jestConfig.coverageReporters = [];
+      if (options.debugHeftReporter) {
+        throw new Error(
+          '"--debug-heft-reporter" is not supported in managed mode: the Heft reporter must defer the verdict.'
+        );
+      }
     }
 
     // If no displayName is provided, use the package name. This field is used by Jest to
@@ -629,7 +801,15 @@ export default class JestPlugin implements IHeftTaskPlugin<IJestPluginOptions> {
       testTimeout: options.testTimeout,
       maxWorkers: options.maxWorkers,
 
-      passWithNoTests: options.passWithNoTests,
+      // Rush's default shardArgumentFormat is "--shard={shardIndex}/{shardCount}" and its shard
+      // loop is 1-based, which is byte-identical to Jest's own syntax, so the value passes
+      // through with no index conversion. See the ShardIdentity tests in
+      // Heft core, which guard that coincidence against a silent regression.
+      shard: options.shard,
+
+      // An individual partition may legitimately be empty. The collator applies the configured
+      // whole-suite policy after seeing all sibling manifests.
+      passWithNoTests: managedShard ? true : options.passWithNoTests,
 
       [jestPluginSymbol]: this,
 
@@ -645,7 +825,8 @@ export default class JestPlugin implements IHeftTaskPlugin<IJestPluginOptions> {
         taskSession,
         heftConfiguration,
         jestConfig,
-        projectRelativeFilePath
+        projectRelativeFilePath,
+        managedShard
       );
     } else {
       logger.emitWarning(
@@ -661,6 +842,36 @@ export default class JestPlugin implements IHeftTaskPlugin<IJestPluginOptions> {
 
     if (options.disableCodeCoverage) {
       jestConfig.collectCoverage = false;
+    }
+
+    if (shardIdentity) {
+      configureJestShard(jestArgv, jestConfig, {
+        identity: shardIdentity,
+        tempFolderPath: taskSession.tempFolderPath,
+        buildFolderPath,
+        outputDirectory: options.shardOutputDirectory
+      });
+    }
+    if (coverageCollector) {
+      const reporters: JestReporterConfig[] = jestArgv.reporters as unknown as JestReporterConfig[];
+      let executionInputConfiguration:
+        | Pick<Config.InitialOptions, 'transform' | 'transformIgnorePatterns'>
+        | undefined;
+      if (coverageCollector.configuration.enabled && coverageCollector.configuration.provider === 'babel') {
+        executionInputConfiguration = await coverageCollector.configureExecutionInputsAsync(
+          jestArgv,
+          jestConfig
+        );
+      }
+      if (executionInputConfiguration) {
+        jestConfig = { ...jestConfig, ...executionInputConfiguration };
+      }
+      jestConfig.runner = `${__dirname}/JestManagedRunner.js`;
+      jestConfig.testRunner = `${__dirname}/JestCoverageRunner.js`;
+      reporters.push([`${__dirname}/JestCompletionEvidence.js`, { cacheDirectory: jestArgv.cacheDirectory }]);
+      // Prevent Jest's implicit text-summary reporter when coverageReporters is empty.
+      jestArgv.useStderr = true;
+      reporters.push([`${__dirname}/JestCoverageCollector.js`, { cacheDirectory: jestArgv.cacheDirectory }]);
     }
 
     // Stringify the config and pass it into Jest directly
@@ -824,7 +1035,8 @@ function _extractHeftJestReporters(
   taskSession: IHeftTaskSession,
   heftConfiguration: HeftConfiguration,
   config: IHeftJestConfiguration,
-  projectRelativeFilePath: string
+  projectRelativeFilePath: string,
+  managedShard: boolean
 ): JestReporterConfig[] {
   let isUsingHeftReporter: boolean = false;
 
@@ -833,7 +1045,8 @@ function _extractHeftJestReporters(
   const reporterOptions: IHeftJestReporterOptions = {
     heftConfiguration,
     logger,
-    debugMode: taskSession.parameters.debug
+    debugMode: taskSession.parameters.debug,
+    managedShard
   };
   if (Array.isArray(config.reporters)) {
     // Harvest all the array indices that need to modified before altering the array

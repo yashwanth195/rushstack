@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@rushstack/heft",
+      "comment": "Add workload-neutral shard manifests, output ownership and collation to Heft core, with task-session registration for workload adapters.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@rushstack/heft"
+}

@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@microsoft/rush",
+      "comment": "Add execution planning without scheduling, explicit exportable environment overrides, and executable runner commands. Export configured native shard identities, per-operation outputs, cache exclusions and warning policy under execution contract version 1; reject invalid graphs before publication.",
+      "type": "patch"
+    }
+  ],
+  "packageName": "@microsoft/rush"
+}

@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "Managed Heft shard identity",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["phaseNames"],
+  "properties": {
+    "phaseNames": {
+      "description": "Opt-in native Rush sharded phases that execute the managed Heft shard protocol.",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^_phase:.+" }
+    }
+  }
+}

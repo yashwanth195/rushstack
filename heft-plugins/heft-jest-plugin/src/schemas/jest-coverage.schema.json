@@ -1,0 +1,194 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "Jest shard coverage",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "configuration", "map", "sourceHashes", "expectedFiles", "v8"],
+  "definitions": {
+    "sourceMap": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["version", "sources", "sourcesContent", "names", "mappings"],
+      "properties": {
+        "version": { "enum": [3] },
+        "sources": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "sourcesContent": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "names": { "type": "array", "items": { "type": "string" } },
+        "mappings": { "type": "string" },
+        "inputShebangRemoved": { "enum": [true] }
+      }
+    },
+    "v8Entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["result", "source", "sourceMap", "baseline"],
+      "properties": {
+        "source": { "type": "string" },
+        "sourceMap": { "$ref": "#/definitions/sourceMap" },
+        "baseline": { "type": "boolean" },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["scriptId", "url", "functions"],
+          "properties": {
+            "scriptId": { "type": "string" },
+            "url": { "type": "string", "minLength": 1 },
+            "functions": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["functionName", "isBlockCoverage", "ranges"],
+                "properties": {
+                  "functionName": { "type": "string" },
+                  "isBlockCoverage": { "type": "boolean" },
+                  "ranges": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["startOffset", "endOffset", "count"],
+                      "properties": {
+                        "startOffset": { "$ref": "#/definitions/count" },
+                        "endOffset": { "$ref": "#/definitions/count" },
+                        "count": { "$ref": "#/definitions/count" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "count": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["line", "column"],
+      "properties": {
+        "line": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "column": {
+          "description": "Preserve public V8 converter coordinates, including negative columns. Babel locations are checked separately; V8 maps must match raw coverage replay.",
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        }
+      }
+    },
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end"],
+      "properties": {
+        "start": { "$ref": "#/definitions/position" },
+        "end": { "$ref": "#/definitions/position" }
+      }
+    },
+    "branchLocation": {
+      "anyOf": [
+        { "$ref": "#/definitions/location" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["start", "end"],
+          "properties": {
+            "start": { "type": "object", "additionalProperties": false },
+            "end": { "type": "object", "additionalProperties": false }
+          }
+        }
+      ]
+    },
+    "threshold": { "type": "number" },
+    "thresholds": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "statements": { "$ref": "#/definitions/threshold" },
+        "branches": { "$ref": "#/definitions/threshold" },
+        "functions": { "$ref": "#/definitions/threshold" },
+        "lines": { "$ref": "#/definitions/threshold" }
+      }
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "statementMap", "fnMap", "branchMap", "s", "f", "b"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "all": { "type": "boolean" },
+        "statementMap": { "type": "object", "additionalProperties": { "$ref": "#/definitions/location" } },
+        "fnMap": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "decl", "loc"],
+            "properties": {
+              "name": { "type": "string" },
+              "decl": { "$ref": "#/definitions/location" },
+              "loc": { "$ref": "#/definitions/location" },
+              "line": { "$ref": "#/definitions/count" }
+            }
+          }
+        },
+        "branchMap": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "loc", "locations"],
+            "properties": {
+              "type": { "type": "string" },
+              "loc": { "$ref": "#/definitions/location" },
+              "line": { "$ref": "#/definitions/count" },
+              "locations": { "type": "array", "items": { "$ref": "#/definitions/branchLocation" } }
+            }
+          }
+        },
+        "s": { "type": "object", "additionalProperties": { "$ref": "#/definitions/count" } },
+        "f": { "type": "object", "additionalProperties": { "$ref": "#/definitions/count" } },
+        "b": {
+          "type": "object",
+          "additionalProperties": { "type": "array", "items": { "$ref": "#/definitions/count" } }
+        }
+      }
+    }
+  },
+  "properties": {
+    "version": { "enum": [2] },
+    "v8": { "type": ["array", "null"], "items": { "$ref": "#/definitions/v8Entry" } },
+    "configuration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "provider",
+        "collectCoverageFrom",
+        "coveragePathIgnorePatterns",
+        "thresholds",
+        "reporters"
+      ],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "provider": { "enum": ["babel", "v8"] },
+        "collectCoverageFrom": { "type": "array", "items": { "type": "string" } },
+        "coveragePathIgnorePatterns": { "type": "array", "items": { "type": "string" } },
+        "thresholds": {
+          "type": ["object", "null"],
+          "additionalProperties": { "$ref": "#/definitions/thresholds" }
+        },
+        "reporters": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "map": { "type": ["object", "null"], "additionalProperties": { "$ref": "#/definitions/file" } },
+    "sourceHashes": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+    },
+    "expectedFiles": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+  }
+}

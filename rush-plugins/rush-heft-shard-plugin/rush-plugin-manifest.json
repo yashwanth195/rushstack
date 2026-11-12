@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/rush/v5/rush-plugin-manifest.schema.json",
+  "plugins": [
+    {
+      "pluginName": "rush-heft-shard-plugin",
+      "description": "Inject current input identities into managed Heft test shards and collators.",
+      "entryPoint": "./lib-commonjs/index.js",
+      "optionsSchema": "./lib-commonjs/schemas/options.schema.json"
+    }
+  ]
+}

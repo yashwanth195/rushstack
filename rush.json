@@ -948,6 +948,12 @@
       "shouldPublish": false
     },
     {
+      "packageName": "heft-sharding-test",
+      "projectFolder": "build-tests/heft-sharding-test",
+      "reviewCategory": "tests",
+      "shouldPublish": false
+    },
+    {
       "packageName": "heft-swc-test",
       "projectFolder": "build-tests/heft-swc-test",
       "reviewCategory": "tests",
@@ -1478,6 +1484,12 @@
     {
       "packageName": "@rushstack/rush-buildxl-graph-plugin",
       "projectFolder": "rush-plugins/rush-buildxl-graph-plugin",
+      "reviewCategory": "libraries",
+      "versionPolicyName": "rush"
+    },
+    {
+      "packageName": "@rushstack/rush-heft-shard-plugin",
+      "projectFolder": "rush-plugins/rush-heft-shard-plugin",
       "reviewCategory": "libraries",
       "versionPolicyName": "rush"
     },

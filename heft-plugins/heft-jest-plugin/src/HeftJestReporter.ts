@@ -21,6 +21,7 @@ export interface IHeftJestReporterOptions {
   heftConfiguration: HeftConfiguration;
   logger: IScopedLogger;
   debugMode: boolean;
+  managedShard?: boolean;
 }
 
 /**
@@ -38,11 +39,13 @@ export default class HeftJestReporter implements Reporter {
   #terminal: ITerminal;
   #buildFolderPath: string;
   #debugMode: boolean;
+  #managedShard: boolean;
 
   public constructor(jestConfig: Config.GlobalConfig, options: IHeftJestReporterOptions) {
     this.#terminal = options.logger.terminal;
     this.#buildFolderPath = options.heftConfiguration.buildFolderPath;
     this.#debugMode = options.debugMode;
+    this.#managedShard = options.managedShard ?? false;
   }
 
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -213,7 +216,9 @@ export default class HeftJestReporter implements Reporter {
     } = results;
 
     this.#terminal.writeLine();
-    this.#terminal.writeLine('Tests finished:');
+    this.#terminal.writeLine(
+      this.#managedShard ? 'Shard tests finished (verdict deferred to collator):' : 'Tests finished:'
+    );
 
     const successesText: string = `  Successes: ${numPassedTests}`;
     this.#terminal.writeLine(numPassedTests > 0 ? Colorize.green(successesText) : successesText);

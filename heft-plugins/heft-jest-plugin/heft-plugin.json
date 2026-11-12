@@ -1,5 +1,6 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/heft/v0/heft-plugin.schema.json",
+  "defaultPluginName": "jest-plugin",
 
   "taskPlugins": [
     {
@@ -48,6 +49,22 @@
           "description": "Use this parameter to control maximum number of worker processes tests are allowed to use.  This parameter is similar to the parameter noted in the Jest documentation, and can either be an integer representing the number of workers to spawn when running tests, or can be a string representing a percentage of the available CPUs on the machine to utilize. Example values: \"3\", \"25%%\""
         },
         {
+          "longName": "--shard",
+          "parameterKind": "string",
+          "allowWithClean": false,
+          "allowInWatchMode": false,
+          "argumentName": "INDEX_SLASH_COUNT",
+          "description": "Run only one partition of the test suite, expressed as \"<index>/<count>\" using 1-based values, for example \"2/4\". A standalone partition retains normal Jest failure exits. Only when combined with \"--shard-output-directory\" does a managed Rush shard record diagnostics and defer the verdict to a collator. When omitted, the behavior is unchanged."
+        },
+        {
+          "longName": "--shard-output-directory",
+          "parameterKind": "string",
+          "allowWithClean": false,
+          "allowInWatchMode": false,
+          "argumentName": "RELATIVE_PATH",
+          "description": "Opt into managed Rush sharding: write a required result manifest and defer recorded test failures to the collator. Requires \"--shard\" and a nonempty RUSH_SHARD_GENERATION environment variable. The output must be below the build folder with a basename equal to the 1-based shard index (for example temp/shards/2). Supported V8 and Babel coverage is collected per shard; the collator merges coverage, emits supported coverage reports, and evaluates thresholds on the merged result. Custom Jest reporters remain unsupported in managed mode."
+        },
+        {
           "longName": "--silent",
           "parameterKind": "flag",
           "description": "Prevent tests from printing messages through the console.  This corresponds to the \"--silent\" parameter in Jest's documentation."
@@ -82,6 +99,30 @@
           "shortName": "-u",
           "parameterKind": "flag",
           "description": "Update Jest snapshots while running the tests.  This corresponds to the \"--updateSnapshots\" parameter in Jest."
+        }
+      ]
+    },
+    {
+      "pluginName": "jest-collator-plugin",
+      "entryPoint": "./lib-commonjs/JestCollatorPlugin",
+      "optionsSchema": "./lib-commonjs/schemas/jest-collator-plugin.schema.json",
+      "parameterScope": "jest-collator",
+      "parameters": [
+        {
+          "longName": "--shard-parent-folder",
+          "parameterKind": "string",
+          "argumentName": "RELATIVE_PATH",
+          "allowWithClean": false,
+          "allowInWatchMode": false,
+          "description": "Collate manifests through Heft core from shard subfolders below this build-root-relative folder. Requires --shard-count and the current RUSH_SHARD_GENERATION."
+        },
+        {
+          "longName": "--shard-count",
+          "parameterKind": "integer",
+          "argumentName": "COUNT",
+          "allowWithClean": false,
+          "allowInWatchMode": false,
+          "description": "The positive number of managed shards whose complete results must be collated. Requires --shard-parent-folder."
         }
       ]
     }

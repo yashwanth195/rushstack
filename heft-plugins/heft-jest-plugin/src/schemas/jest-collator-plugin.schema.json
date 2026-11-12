@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "Jest Collator Plugin Options",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "outputDirectory": {
+      "description": "Build-root-relative report folder, without symlinks or junctions. Defaults to temp. The report must not overlap shard inputs.",
+      "type": "string",
+      "minLength": 1
+    },
+    "reportFilename": {
+      "description": "Single JSON filename within outputDirectory. Defaults to jest-collated.json. Must not be shard-manifest.json.",
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]*\\.json$"
+    },
+    "junitOutputFile": {
+      "description": "Optional build-root-relative XML filename for collator-owned JUnit. Must not overlap shard inputs, JSON, or coverage outputs. Requires version 3 assertion details.",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\.[xX][mM][lL]$"
+    }
+  }
+}

@@ -7,7 +7,7 @@ import { createHash, type Hash } from 'node:crypto';
 import ignore, { type Ignore } from 'ignore';
 
 import { type IReadonlyLookupByPath, LookupByPath } from '@rushstack/lookup-by-path';
-import { InternalError, Path, Sort } from '@rushstack/node-core-library';
+import { EnvironmentMap, InternalError, Path, Sort } from '@rushstack/node-core-library';
 
 import type { RushConfigurationProject } from '../../api/RushConfigurationProject';
 import type {
@@ -90,7 +90,7 @@ export interface IInputsSnapshotParameters {
    */
   additionalHashes?: ReadonlyMap<string, string>;
   /**
-   * The environment to use for `dependsOnEnvVars`. By default performs a snapshot of process.env upon construction.
+   * The environment to snapshot for `dependsOnEnvVars`. Defaults to process.env upon construction.
    * @defaultValue \{ ...process.env \}
    */
   environment?: Record<string, string | undefined>;
@@ -213,7 +213,7 @@ export class InputsSnapshot implements IInputsSnapshot {
   /**
    * The environment to use for `dependsOnEnvVars`.
    */
-  readonly #environment: Record<string, string | undefined>;
+  readonly #environment: EnvironmentMap;
   /**
    * Pre-computed Node.js version strings at each granularity level for `dependsOnNodeVersion`.
    */
@@ -287,7 +287,7 @@ export class InputsSnapshot implements IInputsSnapshot {
     this.#additionalHashes = additionalHashes;
     this.#globalAdditionalHashes = globalAdditionalHashes;
     // Snapshot the environment so that queries are not impacted by when they happen
-    this.#environment = environment;
+    this.#environment = new EnvironmentMap(environment);
     // Parse Node.js version once so it doesn't need to be re-parsed per operation
     this.#nodeVersionByGranularity = _parseNodeVersion(nodeVersion);
     this.hashes = hashes;
@@ -311,11 +311,26 @@ export class InputsSnapshot implements IInputsSnapshot {
     let hashes: Map<string, string> | undefined = fileHashesByOperationName.get(operationName);
     if (!hashes) {
       hashes = new Map();
-      fileHashesByOperationName.set(operationName, hashes);
       // TODO: Support incrementalBuildIgnoredGlobs per-operation
       const filter: (filePath: string) => boolean = getOrCreateProjectFilter(record);
 
       let outputValidator: LookupByPath<string> | undefined;
+      const validateInputPath: (filePath: string, inputKind: 'tracked' | 'additional') => void = (
+        filePath,
+        inputKind
+      ) => {
+        // This should eventually use a global file origin map to detect outputs of *any* operation.
+        const outputMatch: string | undefined = outputValidator?.findChildPath(
+          getOutputLookupPath(this.rootDirectory, filePath)
+        );
+        if (outputMatch) {
+          throw new Error(
+            `Configured output folder "${outputMatch}" for operation "${operationName}" in project "${project.projectRelativeFolder}" contains ${inputKind} input file "${filePath}".` +
+              ` If it is intended that this operation modifies its own input files, modify the build process to emit a warning if the output version differs from the input, and remove the directory from "outputFolderNames".` +
+              ` This will ensure cache correctness. Otherwise, change the build process to output to a disjoint folder.`
+          );
+        }
+      };
 
       if (operationName) {
         const operationSettings: Readonly<IOperationSettings> | undefined =
@@ -323,10 +338,12 @@ export class InputsSnapshot implements IInputsSnapshot {
 
         const outputFolderNames: string[] | undefined = operationSettings?.outputFolderNames;
         if (outputFolderNames) {
-          const { relativePrefix } = record;
           outputValidator = new LookupByPath();
           for (const folderName of outputFolderNames) {
-            outputValidator.setItem(`${relativePrefix}/${folderName}`, folderName);
+            outputValidator.setItem(
+              getOutputLookupPath(this.rootDirectory, path.resolve(project.projectFolder, folderName)),
+              folderName
+            );
           }
         }
 
@@ -337,6 +354,7 @@ export class InputsSnapshot implements IInputsSnapshot {
           // Sort the additional files to ensure deterministic hash computation
           const sortedAdditionalFiles: string[] = Array.from(additionalFilesForOperation).sort();
           for (const [filePath, hash] of this.#resolveHashes(sortedAdditionalFiles)) {
+            validateInputPath(filePath, 'additional');
             hashes.set(filePath, hash);
           }
         }
@@ -355,18 +373,9 @@ export class InputsSnapshot implements IInputsSnapshot {
           hashes.set(filePath, hash);
         }
 
-        // Ensure that the configured output folders for this operation do not contain any input files
-        // This should be reworked to operate on a global file origin map to ensure a hashed input
-        // is not a declared output of *any* operation.
-        const outputMatch: string | undefined = outputValidator?.findChildPath(filePath);
-        if (outputMatch) {
-          throw new Error(
-            `Configured output folder "${outputMatch}" for operation "${operationName}" in project "${project.projectRelativeFolder}" contains tracked input file "${filePath}".` +
-              ` If it is intended that this operation modifies its own input files, modify the build process to emit a warning if the output version differs from the input, and remove the directory from "outputFolderNames".` +
-              ` This will ensure cache correctness. Otherwise, change the build process to output to a disjoint folder.`
-          );
-        }
+        validateInputPath(filePath, 'tracked');
       }
+      fileHashesByOperationName.set(operationName, hashes);
     }
 
     return hashes;
@@ -403,7 +412,8 @@ export class InputsSnapshot implements IInputsSnapshot {
             // As long as we enumerate environment variables in a consistent order, we will get a stable hash.
             // Changing the order in rush-project.json will change the hash anyway since the file contents are part of the hash.
             for (const envVar of dependsOnEnvVars) {
-              hasher.update(`${hashDelimiter}$${envVar}=${this.#environment[envVar] || ''}`);
+              // Encode absence separately from an empty value, and escape delimiters within values.
+              hasher.update(`${hashDelimiter}$${JSON.stringify([envVar, this.#environment.get(envVar)])}`);
             }
           }
 
@@ -500,6 +510,11 @@ function createInternalRecord(
     fileHashesByOperationName: new Map(),
     relativePrefix: getRelativePrefix(project, rootDir)
   };
+}
+
+function getOutputLookupPath(rootDir: string, filePath: string): string {
+  const relativePath: string = Path.convertToSlashes(path.relative(rootDir, path.resolve(rootDir, filePath)));
+  return process.platform === 'win32' ? relativePath.toLowerCase() : relativePath;
 }
 
 function getRelativePrefix(project: IRushConfigurationProjectForSnapshot, rootDir: string): string {

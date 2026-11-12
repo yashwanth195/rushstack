@@ -519,6 +519,25 @@ export class OperationGraph implements IOperationGraph {
     return !!(await this.#scheduleIterationAsync(iterationOptions));
   }
 
+  public async createExecutionPlanAsync(
+    iterationOptions: IOperationGraphIterationOptions
+  ): Promise<ReadonlyMap<Operation, OperationExecutionRecord>> {
+    if (this.#currentIteration || this.hasScheduledIteration) {
+      throw new Error('Cannot create an external execution plan while an iteration is active or scheduled.');
+    }
+    this.abortController.signal.throwIfAborted();
+    const context: IExecutionIterationContext = await this.#prepareIterationAsync(iterationOptions);
+    try {
+      this.abortController.signal.throwIfAborted();
+      return context.records;
+    } finally {
+      for (const record of context.records.values()) {
+        record.stdioSummarizer.close();
+        record.problemCollector.close();
+      }
+    }
+  }
+
   /**
    * Executes all operations which have been registered, returning a promise which is resolved when all operations have been processed to a final state.
    * Aborts the current iteration first, if any.
@@ -616,9 +635,9 @@ export class OperationGraph implements IOperationGraph {
     }
   };
 
-  async #scheduleIterationAsync(
+  async #prepareIterationAsync(
     iterationOptions: IOperationGraphIterationOptions
-  ): Promise<IExecutionIterationContext | undefined> {
+  ): Promise<IExecutionIterationContext> {
     const getInputsSnapshotAsync: (() => Promise<IInputsSnapshot | undefined>) | undefined =
       this.#getInputsSnapshotAsync;
 
@@ -715,45 +734,6 @@ export class OperationGraph implements IOperationGraph {
       hooks.configureIteration.call(executionRecords, this.resultByOperation, iterationOptionsForCallbacks);
     });
 
-    for (const executionRecord of executionRecords.values()) {
-      if (!executionRecord.silent) {
-        // Only count non-silent operations
-        iterationContext.totalOperations++;
-      }
-    }
-
-    if (iterationContext.totalOperations === 0) {
-      for (const executionRecord of executionRecords.values()) {
-        eventSink?.onOperationRegistered?.(
-          executionRecord.name,
-          executionRecord.silent,
-          executionRecord,
-          executionRecord.iterationId
-        );
-        executionRecord.status = OperationStatus.NoOp;
-        executionRecord.finalizeOperation();
-        executionRecord.stdioSummarizer.close();
-        executionRecord.problemCollector.close();
-      }
-      return;
-    }
-
-    this.#setScheduledIteration(iterationContext);
-    // Notify listeners that an iteration has been scheduled with the planned operation records
-    try {
-      this.hooks.onIterationScheduled.call(iterationContext.records);
-    } catch (e) {
-      // Surface configuration-time issues clearly
-      const errorMessage: string = `An error occurred in onIterationScheduled hook: ${(e as Error).message}`;
-      eventSink?.onActivity?.(errorMessage, { stderr: true });
-      terminal.writeStderrLine(Colorize.red(errorMessage));
-      throw e;
-    }
-    if (!this.#currentIteration) {
-      this.#setIdleTimeout();
-    } else if (!this.pauseNextIteration) {
-      void this.abortCurrentIterationAsync();
-    }
     return iterationContext;
 
     function onWriterActive(writer: CollatedWriter | undefined): void {
@@ -793,6 +773,50 @@ export class OperationGraph implements IOperationGraph {
         }
       }
     }
+  }
+
+  async #scheduleIterationAsync(
+    iterationOptions: IOperationGraphIterationOptions
+  ): Promise<IExecutionIterationContext | undefined> {
+    const iterationContext: IExecutionIterationContext = await this.#prepareIterationAsync(iterationOptions);
+    const { records: executionRecords, eventSink, terminal } = iterationContext;
+    for (const executionRecord of executionRecords.values()) {
+      if (!executionRecord.silent) {
+        iterationContext.totalOperations++;
+      }
+    }
+
+    if (iterationContext.totalOperations === 0) {
+      for (const executionRecord of executionRecords.values()) {
+        eventSink?.onOperationRegistered?.(
+          executionRecord.name,
+          executionRecord.silent,
+          executionRecord,
+          executionRecord.iterationId
+        );
+        executionRecord.status = OperationStatus.NoOp;
+        executionRecord.finalizeOperation();
+        executionRecord.stdioSummarizer.close();
+        executionRecord.problemCollector.close();
+      }
+      return;
+    }
+
+    this.#setScheduledIteration(iterationContext);
+    try {
+      this.hooks.onIterationScheduled.call(iterationContext.records);
+    } catch (e) {
+      const errorMessage: string = `An error occurred in onIterationScheduled hook: ${(e as Error).message}`;
+      eventSink?.onActivity?.(errorMessage, { stderr: true });
+      terminal.writeStderrLine(Colorize.red(errorMessage));
+      throw e;
+    }
+    if (!this.#currentIteration) {
+      this.#setIdleTimeout();
+    } else if (!this.pauseNextIteration) {
+      void this.abortCurrentIterationAsync();
+    }
+    return iterationContext;
   }
 
   /**

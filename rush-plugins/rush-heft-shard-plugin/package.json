@@ -1,0 +1,63 @@
+{
+  "name": "@rushstack/rush-heft-shard-plugin",
+  "version": "5.179.0",
+  "description": "Rush cache identity and orchestration support for managed Heft shards",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/microsoft/rushstack.git",
+    "directory": "rush-plugins/rush-heft-shard-plugin"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "homepage": "https://rushjs.io",
+  "license": "MIT",
+  "main": "./lib-commonjs/index.js",
+  "module": "./lib-esm/index.js",
+  "types": "./lib-dts/index.d.ts",
+  "files": [
+    "lib-commonjs/*.js",
+    "lib-commonjs/schemas",
+    "lib-dts/*.d.ts",
+    "lib-esm/*.js",
+    "rush-plugin-manifest.json"
+  ],
+  "scripts": {
+    "build": "heft test --clean",
+    "_phase:build": "heft run --only build -- --clean",
+    "_phase:pack": "rush-pnpm pack",
+    "_phase:test": "heft run --only test -- --clean"
+  },
+  "dependencies": {
+    "@rushstack/rush-sdk": "workspace:*",
+    "semver": "~7.7.4"
+  },
+  "devDependencies": {
+    "@microsoft/rush-lib": "workspace:*",
+    "@rushstack/heft": "workspace:*",
+    "@rushstack/node-core-library": "workspace:*",
+    "@rushstack/terminal": "workspace:*",
+    "@rushstack/ts-command-line": "workspace:*",
+    "@types/semver": "7.7.1",
+    "eslint": "~9.37.0",
+    "local-node-rig": "workspace:*"
+  },
+  "exports": {
+    ".": {
+      "types": "./lib-dts/index.d.ts",
+      "node": "./lib-commonjs/index.js",
+      "import": "./lib-esm/index.js",
+      "require": "./lib-commonjs/index.js"
+    },
+    "./rush-plugin-manifest.json": "./rush-plugin-manifest.json",
+    "./package.json": "./package.json"
+  },
+  "typesVersions": {
+    "*": {
+      ".": [
+        "lib-dts/index.d.ts"
+      ]
+    }
+  },
+  "sideEffects": false
+}

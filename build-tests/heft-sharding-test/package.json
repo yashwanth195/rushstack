@@ -1,0 +1,25 @@
+{
+  "name": "heft-sharding-test",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Real Rush, Heft and Jest managed sharding and local build cache integration tests",
+  "scripts": {
+    "build": "heft test --clean --max-workers=1",
+    "_phase:build": "heft run --only build -- --clean",
+    "_phase:test": "heft run --only test -- --max-workers=1"
+  },
+  "devDependencies": {
+    "@microsoft/rush-lib": "workspace:*",
+    "@rushstack/heft": "workspace:*",
+    "@rushstack/heft-jest-plugin": "workspace:*",
+    "@rushstack/rush-buildxl-graph-plugin": "workspace:*",
+    "@types/istanbul-lib-coverage": "2.0.6",
+    "@types/jest": "30.0.0",
+    "@types/node": "20.17.19",
+    "eslint": "~9.37.0",
+    "istanbul-lib-coverage": "3.2.2",
+    "jest-environment-node": "~30.3.0",
+    "local-node-rig": "workspace:*",
+    "@rushstack/rush-heft-shard-plugin": "workspace:*"
+  }
+}

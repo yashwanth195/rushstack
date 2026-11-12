@@ -20,7 +20,7 @@
     "_phase:test": "heft run --only test -- --clean"
   },
   "peerDependencies": {
-    "@rushstack/heft": "^1.2.26",
+    "@rushstack/heft": "workspace:^",
     "@types/jest": "^30.0.0",
     "jest-environment-jsdom": "^30.3.0",
     "jest-environment-node": "^30.3.0"
@@ -37,6 +37,9 @@
     }
   },
   "dependencies": {
+    "@bcoe/v8-coverage": "0.2.3",
+    "@jridgewell/trace-mapping": "0.3.31",
+    "convert-source-map": "2.0.0",
     "@jest/core": "~30.3.0",
     "@jest/reporters": "~30.3.0",
     "@jest/transform": "~30.3.0",
@@ -45,9 +48,23 @@
     "@rushstack/terminal": "workspace:*",
     "jest-config": "~30.3.0",
     "jest-resolve": "~30.3.0",
-    "jest-snapshot": "~30.3.0"
+    "jest-snapshot": "~30.3.0",
+    "@jest/test-result": "30.3.0",
+    "istanbul-lib-coverage": "3.2.2",
+    "istanbul-lib-report": "3.0.1",
+    "istanbul-reports": "3.2.0",
+    "v8-to-istanbul": "9.3.0",
+    "jest-circus": "30.3.0",
+    "istanbul-lib-instrument": "6.0.3",
+    "istanbul-lib-source-maps": "5.0.6",
+    "jest-haste-map": "30.3.0",
+    "jest-runner": "30.3.0",
+    "jest-runtime": "30.3.0",
+    "jest-watcher": "30.3.0",
+    "jest-worker": "30.3.0"
   },
   "devDependencies": {
+    "@types/convert-source-map": "2.0.3",
     "@jest/types": "30.3.0",
     "@rushstack/heft": "workspace:*",
     "@types/node": "20.17.19",
@@ -55,7 +72,13 @@
     "eslint": "~9.37.0",
     "jest-environment-jsdom": "~30.3.0",
     "jest-environment-node": "~30.3.0",
-    "jest-watch-select-projects": "2.0.0"
+    "jest-watch-select-projects": "2.0.0",
+    "@types/istanbul-lib-coverage": "2.0.6",
+    "@types/istanbul-lib-report": "3.0.3",
+    "@types/istanbul-reports": "3.0.4",
+    "@types/yargs": "17.0.33",
+    "@types/istanbul-lib-instrument": "1.7.8",
+    "@types/istanbul-lib-source-maps": "4.0.4"
   },
   "exports": {
     "./includes/*.json": "./includes/*.json",

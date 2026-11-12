@@ -1,0 +1,8 @@
+/temp/
+/lib-commonjs/
+/lib-esm/
+/lib-dts/
+/coverage/
+/rush-logs/
+/node_modules/
+/.rush/

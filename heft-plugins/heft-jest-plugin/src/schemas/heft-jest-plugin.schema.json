@@ -21,6 +21,11 @@
       "title": "Enable management of the NODE_ENV variable",
       "description": "If set to false, heft-jest-plugin will not set or unset the NODE_ENV variable. Otherwise, NODE_ENV will be set to `test` before execution and cleared after. If the NODE_ENV value is already set to a value that is not `test`, warning message appears.",
       "type": "boolean"
+    },
+    "passWithNoTests": {
+      "title": "Pass when no tests are selected",
+      "description": "If false, an empty test selection fails. Defaults to true. For managed sharding, the collator applies this policy to the complete selection rather than individual partitions.",
+      "type": "boolean"
     }
   }
 }

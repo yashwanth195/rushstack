@@ -144,6 +144,83 @@ describe('OperationGraph', () => {
     mockWritable.reset();
   });
 
+  describe('External execution planning', () => {
+    beforeEach(() => {
+      graphOptions = {
+        quietMode: true,
+        debugMode: false,
+        parallelism: 1,
+        allowOversubscription: false,
+        destinations: [mockWritable],
+        abortController: new AbortController()
+      };
+    });
+
+    it('plans disabled operations without scheduling, running hooks, or exporting the ambient environment', async () => {
+      const run = jest.fn(async () => OperationStatus.Success);
+      const graph: OperationGraph = createGraph(graphOptions, new MockOperationRunner('planned', run));
+      const environmentHook = jest.fn((environment) => environment);
+      const beforeExecution = jest.fn();
+      const scheduled = jest.fn();
+      graph.hooks.createEnvironmentForOperation.tap('local-only', environmentHook);
+      graph.hooks.beforeExecuteIterationAsync.tap('must-not-run', beforeExecution);
+      graph.hooks.onIterationScheduled.tap('must-not-schedule', scheduled);
+      graph.hooks.configureIteration.tap('configure-export', (records) => {
+        for (const record of records.values()) {
+          record.enabled = false;
+          record.environmentOverrides = { EXPORTED_IDENTITY: 'generation' };
+        }
+      });
+
+      const plan = await graph.createExecutionPlanAsync({});
+      expect(plan.size).toBe(1);
+      expect([...plan.values()][0]).toMatchObject({
+        enabled: false,
+        environmentOverrides: { EXPORTED_IDENTITY: 'generation' }
+      });
+      expect(graph.hasScheduledIteration).toBe(false);
+      expect(graph.resultByOperation.size).toBe(0);
+      expect(run).not.toHaveBeenCalled();
+      expect(environmentHook).not.toHaveBeenCalled();
+      expect(beforeExecution).not.toHaveBeenCalled();
+      expect(scheduled).not.toHaveBeenCalled();
+      expect(mockWritable.getAllOutput()).toBe('');
+    });
+
+    it('uses the same explicit environment overrides for local execution without reusing planned records', async () => {
+      const runner = new MockOperationRunner('planned', async () => OperationStatus.Success);
+      const execute = jest.spyOn(runner, 'executeAsync');
+      const graph: OperationGraph = createGraph(graphOptions, runner);
+      let generation: string = 'first';
+      graph.hooks.configureIteration.tap('identity', (records) => {
+        for (const record of records.values()) {
+          record.environmentOverrides = { EXPORTED_IDENTITY: generation };
+        }
+      });
+      graph.hooks.createEnvironmentForOperation.tap('local-only', (environment) => ({
+        ...environment,
+        EXPORTED_IDENTITY: 'must-not-override',
+        LOCAL_ONLY: 'not-exported'
+      }));
+
+      const firstPlan = await graph.createExecutionPlanAsync({});
+      generation = 'second';
+      await graph.executeAsync({});
+      expect(execute).toHaveBeenCalledTimes(1);
+      expect(execute.mock.calls[0][0].environment).toMatchObject({
+        EXPORTED_IDENTITY: 'second',
+        LOCAL_ONLY: 'not-exported'
+      });
+      expect([...firstPlan.values()][0].environmentOverrides).toEqual({ EXPORTED_IDENTITY: 'first' });
+    });
+
+    it('returns an empty plan without scheduling an empty iteration', async () => {
+      const graph: OperationGraph = new OperationGraph(new Set(), graphOptions);
+      await expect(graph.createExecutionPlanAsync({})).resolves.toHaveProperty('size', 0);
+      expect(graph.hasScheduledIteration).toBe(false);
+    });
+  });
+
   describe('Error logging', () => {
     beforeEach(() => {
       graphOptions = {

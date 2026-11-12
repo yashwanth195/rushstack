@@ -1,9 +1,12 @@
 // Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT license.
 // See LICENSE in the project root for license information.
 
+import * as path from 'node:path';
+
 import { LookupByPath } from '@rushstack/lookup-by-path';
 
 import type { RushProjectConfiguration } from '../../../api/RushProjectConfiguration';
+import { RushConstants } from '../../RushConstants';
 import {
   InputsSnapshot,
   type IInputsSnapshotParameters,
@@ -132,6 +135,79 @@ describe(InputsSnapshot.name, () => {
       expect(result.get('a/lib/file3.js')).toEqual('hash3');
       expect(result.get('/ext/config.json')).toEqual('hash4');
     });
+
+    function getOutputSnapshot(
+      inputKind: 'tracked' | 'additional',
+      filePath: string
+    ): { project: IRushConfigurationProjectForSnapshot; input: InputsSnapshot } {
+      const { project, options } = getTestConfig();
+      const projectConfig: Pick<RushProjectConfiguration, 'operationSettingsByOperationName'> = {
+        operationSettingsByOperationName: new Map([
+          ['_phase:build', { operationName: '_phase:build', outputFolderNames: ['lib'] }]
+        ])
+      };
+      const input: InputsSnapshot = new InputsSnapshot({
+        ...options,
+        hashes: new Map([
+          ['a/source.js', 'source-hash'],
+          ...(inputKind === 'tracked' ? [[filePath, 'uncovered-hash'] as const] : [])
+        ]),
+        additionalHashes: new Map([[filePath, 'uncovered-hash']]),
+        projectMap: new Map([
+          [
+            project,
+            {
+              projectConfig: projectConfig as RushProjectConfiguration,
+              additionalFilesByOperationName:
+                inputKind === 'additional' ? new Map([['_phase:build', new Set([filePath])]]) : undefined
+            }
+          ]
+        ])
+      });
+      return { project, input };
+    }
+
+    it.each([
+      ['tracked', 'a/lib/uncovered.js'],
+      ['additional', 'a/lib/uncovered.js'],
+      ['additional', 'a/lib/../lib/uncovered.js'],
+      ['additional', path.resolve('/root/a/lib/uncovered.js')]
+    ] as const)('Rejects %s uncovered output inputs: %s', (inputKind, filePath) => {
+      const { project, input } = getOutputSnapshot(inputKind, filePath);
+      // A rejected snapshot must not cache a partially validated map for a later query.
+      for (let attempt: number = 0; attempt < 2; attempt++) {
+        expect(() => input.getTrackedFileHashesForOperation(project, '_phase:build')).toThrow(
+          `contains ${inputKind} input file "${filePath}"`
+        );
+        expect(() => input.getOperationOwnStateHash(project, '_phase:build')).toThrow(
+          'output to a disjoint folder'
+        );
+      }
+    });
+
+    (process.platform === 'win32' ? it.each : it.skip.each)([
+      ['tracked', 'a/LIB/UNCOVERED.js'],
+      ['additional', 'A/LIB/UNCOVERED.js'],
+      ['additional', path.resolve('/root/a/lib/uncovered.js').toUpperCase()]
+    ] as const)('Rejects differently cased Windows %s output inputs: %s', (inputKind, filePath) => {
+      const { project, input } = getOutputSnapshot(inputKind, filePath);
+      expect(() => input.getTrackedFileHashesForOperation(project, '_phase:build')).toThrow(
+        `contains ${inputKind} input file "${filePath}"`
+      );
+    });
+
+    it.each(['a/lib-sources/uncovered.js', path.resolve('/root/a/lib-sources/uncovered.js')])(
+      'Preserves additional input keys and hashes beside an output folder: %s',
+      (filePath) => {
+        const { project, input } = getOutputSnapshot('additional', filePath);
+        const hashes: ReadonlyMap<string, string> = input.getTrackedFileHashesForOperation(
+          project,
+          '_phase:build'
+        );
+        expect([...hashes]).toEqual([[filePath, 'uncovered-hash'], ['a/source.js', 'source-hash']]);
+        expect(input.getTrackedFileHashesForOperation(project, '_phase:build')).toBe(hashes);
+      }
+    );
 
     it('Respects globalAdditionalFiles', () => {
       const { project, options } = getTestConfig();
@@ -712,6 +788,73 @@ describe(InputsSnapshot.name, () => {
       expect(result2).toMatchSnapshot();
       expect(result2).not.toEqual(baseline);
       expect(result2).not.toEqual(result1);
+    });
+
+    describe('environment identity', () => {
+      function createSnapshot(
+        environment: Record<string, string | undefined>,
+        names: string[] = ['ENV_VAR']
+      ): ReturnType<typeof getTrivialSnapshot> {
+        const { project, options } = getTestConfig();
+        const projectConfig: Pick<RushProjectConfiguration, 'operationSettingsByOperationName'> = {
+          operationSettingsByOperationName: new Map([
+            ['_phase:build', { operationName: '_phase:build', dependsOnEnvVars: names }]
+          ])
+        };
+        return {
+          project,
+          input: new InputsSnapshot({
+            ...options,
+            environment,
+            projectMap: new Map([[project, { projectConfig: projectConfig as RushProjectConfiguration }]])
+          })
+        };
+      }
+
+      function getHash(environment: Record<string, string | undefined>, names?: string[]): string {
+        const { project, input } = createSnapshot(environment, names);
+        return input.getOperationOwnStateHash(project, '_phase:build');
+      }
+
+      it('distinguishes absence, empty values and literal sentinel strings', () => {
+        const values: Array<string | undefined> = [undefined, '', 'undefined', 'null', 'value'];
+        expect(new Set(values.map((value) => getHash({ ENV_VAR: value }))).size).toBe(values.length);
+        expect(getHash({})).toBe(getHash({ ENV_VAR: undefined }));
+      });
+
+      it('uses platform environment-name semantics', () => {
+        const upper: string = getHash({ ENV_VAR: 'first' });
+        const lower: string = getHash({ env_var: 'first' });
+        const changed: string = getHash({ env_var: 'second' });
+        if (process.platform === 'win32') {
+          expect(lower).toBe(upper);
+          expect(changed).not.toBe(lower);
+        } else {
+          expect(lower).toBe(getHash({}));
+          expect(changed).toBe(lower);
+          expect(lower).not.toBe(upper);
+        }
+      });
+
+      it('captures supplied values before the first hash query', () => {
+        const environment: Record<string, string | undefined> = { ENV_VAR: 'captured' };
+        const { project, input } = createSnapshot(environment);
+        environment.ENV_VAR = 'changed';
+        expect(input.getOperationOwnStateHash(project, '_phase:build')).toBe(getHash({ ENV_VAR: 'captured' }));
+      });
+
+      it('does not include undeclared environment inputs', () => {
+        expect(getHash({ ENV_VAR: 'same', OTHER: 'first' })).toBe(
+          getHash({ ENV_VAR: 'same', OTHER: 'second' })
+        );
+      });
+
+      it('does not confuse embedded separators with another declared variable', () => {
+        const delimiter: string = RushConstants.hashDelimiter;
+        expect(getHash({ A: `a${delimiter}$B=b`, B: 'c' }, ['A', 'B'])).not.toBe(
+          getHash({ A: 'a', B: `b${delimiter}$B=c` }, ['A', 'B'])
+        );
+      });
     });
   });
 });

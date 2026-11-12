@@ -3,6 +3,10 @@
   "$schema": "https://developer.microsoft.com/json-schemas/rush/v5/approved-packages.schema.json",
   "packages": [
     {
+      "name": "@bcoe/v8-coverage",
+      "allowedCategories": [ "libraries" ]
+    },
+    {
       "name": "@fluentui/react",
       "allowedCategories": [ "libraries", "vscode-extensions" ]
     },
@@ -11,7 +15,15 @@
       "allowedCategories": [ "vscode-extensions" ]
     },
     {
+      "name": "@jest/test-result",
+      "allowedCategories": [ "libraries" ]
+    },
+    {
       "name": "@jridgewell/sourcemap-codec",
+      "allowedCategories": [ "libraries" ]
+    },
+    {
+      "name": "@jridgewell/trace-mapping",
       "allowedCategories": [ "libraries" ]
     },
     {
@@ -47,12 +59,20 @@
       "allowedCategories": [ "libraries" ]
     },
     {
+      "name": "@rushstack/rush-buildxl-graph-plugin",
+      "allowedCategories": [ "tests" ]
+    },
+    {
       "name": "@rushstack/rush-daemon-protocol",
       "allowedCategories": [ "libraries", "tests" ]
     },
     {
       "name": "@rushstack/rush-daemon-transport",
       "allowedCategories": [ "libraries", "tests" ]
+    },
+    {
+      "name": "@rushstack/rush-heft-shard-plugin",
+      "allowedCategories": [ "tests" ]
     },
     {
       "name": "@rushstack/rush-reporter",
@@ -79,7 +99,55 @@
       "allowedCategories": [ "libraries" ]
     },
     {
+      "name": "convert-source-map",
+      "allowedCategories": [ "libraries" ]
+    },
+    {
       "name": "dependency-path",
+      "allowedCategories": [ "libraries" ]
+    },
+    {
+      "name": "istanbul-lib-coverage",
+      "allowedCategories": [ "libraries", "tests" ]
+    },
+    {
+      "name": "istanbul-lib-instrument",
+      "allowedCategories": [ "libraries" ]
+    },
+    {
+      "name": "istanbul-lib-report",
+      "allowedCategories": [ "libraries" ]
+    },
+    {
+      "name": "istanbul-lib-source-maps",
+      "allowedCategories": [ "libraries" ]
+    },
+    {
+      "name": "istanbul-reports",
+      "allowedCategories": [ "libraries" ]
+    },
+    {
+      "name": "jest-circus",
+      "allowedCategories": [ "libraries" ]
+    },
+    {
+      "name": "jest-haste-map",
+      "allowedCategories": [ "libraries" ]
+    },
+    {
+      "name": "jest-runner",
+      "allowedCategories": [ "libraries" ]
+    },
+    {
+      "name": "jest-runtime",
+      "allowedCategories": [ "libraries" ]
+    },
+    {
+      "name": "jest-watcher",
+      "allowedCategories": [ "libraries" ]
+    },
+    {
+      "name": "jest-worker",
       "allowedCategories": [ "libraries" ]
     },
     {
@@ -121,6 +189,10 @@
     {
       "name": "tslib",
       "allowedCategories": [ "libraries", "tests", "vscode-extensions" ]
+    },
+    {
+      "name": "v8-to-istanbul",
+      "allowedCategories": [ "libraries" ]
     },
     {
       "name": "zod",

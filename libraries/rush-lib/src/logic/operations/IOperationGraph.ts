@@ -116,6 +116,16 @@ export interface IOperationGraph {
   closeRunnersAsync(operations?: Iterable<Operation>): Promise<void>;
 
   /**
+   * Creates configured operation records without scheduling or executing any operations.
+   * Runs configureIteration, but not execution, cache restoration, or environment hooks.
+   * Intended for external executors and graph export. The graph must not have an active
+   * or scheduled iteration.
+   */
+  createExecutionPlanAsync(
+    options: IOperationGraphIterationOptions
+  ): Promise<ReadonlyMap<Operation, IOperationExecutionResult>>;
+
+  /**
    * Executes a single iteration of the operations.
    * @param options - Options for this execution iteration.
    * @returns A promise that resolves to true if the iteration has work to be done, or false if the iteration was empty and therefore not scheduled.

@@ -812,7 +812,7 @@
     },
     {
       "name": "jest-environment-node",
-      "allowedCategories": [ "libraries" ]
+      "allowedCategories": [ "libraries", "tests" ]
     },
     {
       "name": "jest-junit",

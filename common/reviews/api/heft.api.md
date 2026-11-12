@@ -313,6 +313,8 @@ export interface IHeftTaskSession {
     readonly logger: IScopedLogger;
     readonly parameters: IHeftParameters;
     readonly parsedCommandLine: IHeftParsedCommandLine;
+    // @beta
+    registerShardCollator(adapter: IShardCollationAdapter): void;
     requestAccessToPluginByName<T extends object>(pluginToAccessPackage: string, pluginToAccessName: string, pluginApply: (pluginAccessor: T) => void): void;
     readonly taskName: string;
     readonly tempFolderPath: string;
@@ -391,6 +393,56 @@ export interface IScopedLogger {
 }
 
 // @public
+export interface IShardCollationAdapter {
+    acquireAsync(context: IShardCollationContext): Promise<IShardCollationSession>;
+}
+
+// @public
+export interface IShardCollationContext {
+    abortSignal: AbortSignal;
+    expectedGeneration?: string;
+    shardCount?: number;
+    shardParentFolderPath: string | undefined;
+}
+
+// @public
+export interface IShardCollationResult {
+    diagnosticCount: number;
+    generation: string;
+    itemCount: number;
+    manifests: readonly IShardResultManifest[];
+    passed: boolean;
+}
+
+// @public
+export interface IShardCollationSession {
+    collateAsync(result: IShardCollationResult): Promise<IShardCollationVerdict>;
+    prepareAsync(): Promise<void>;
+    release(): void;
+}
+
+// @public
+export interface IShardCollationVerdict {
+    diagnosticCount: number;
+}
+
+// @public
+export interface IShardResultManifest {
+    diagnosticCount: number;
+    durationMs: number;
+    generation: string;
+    itemCount: number;
+    payload?: unknown;
+    producerAttempt: string;
+    shardCount: number;
+    shardIndex: number;
+    startedAt: string;
+    status: ShardStatus;
+    version: 1;
+    workload: string;
+}
+
+// @public
 export interface IWatchedFileState {
     changed: boolean;
 }
@@ -424,6 +476,9 @@ export type ReaddirDirentCallback = (error: NodeJS.ErrnoException | null, files:
 
 // @public
 export type ReaddirStringCallback = (error: NodeJS.ErrnoException | null, files: string[]) => void;
+
+// @public
+export type ShardStatus = 'completed' | 'harness-failure';
 
 // @public
 export type StatCallback = (error: NodeJS.ErrnoException | null, stats: fs.Stats) => void;

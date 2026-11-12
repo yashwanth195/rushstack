@@ -93,6 +93,8 @@ export class OperationExecutionRecord implements IOperationRunnerContext, IOpera
    */
   public enabled: boolean;
 
+  public environmentOverrides: Record<string, string> = {};
+
   /**
    * If true, this operation's runner should remain active after this iteration.
    */
@@ -239,7 +241,10 @@ export class OperationExecutionRecord implements IOperationRunnerContext, IOpera
   }
 
   public get environment(): IEnvironment | undefined {
-    return this.#context.createEnvironment?.(this);
+    const environment: IEnvironment | undefined = this.#context.createEnvironment?.(this);
+    return Object.keys(this.environmentOverrides).length > 0
+      ? { ...(environment ?? process.env), ...this.environmentOverrides }
+      : environment;
   }
 
   public getInvalidateCallback(): (reason: string) => void {

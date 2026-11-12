@@ -15,6 +15,8 @@ import type { ICopyOperation } from '../plugins/CopyFilesPlugin';
 import type { HeftPluginHost } from './HeftPluginHost';
 import type { GlobFn, WatchGlobFn } from '../plugins/FileGlobSpecifier';
 import type { IWatchFileSystem } from '../utilities/WatchFileSystemAdapter';
+import type { IShardCollationAdapter } from '../sharding/IShardCollationAdapter';
+import { ShardCollationTask } from '../sharding/ShardCollationTask';
 
 /**
  * The type of {@link IHeftTaskSession.parsedCommandLine}, which exposes details about the
@@ -113,6 +115,18 @@ export interface IHeftTaskSession {
    * @public
    */
   readonly logger: IScopedLogger;
+
+  /**
+   * Registers this task's workload adapter with Heft's shard collation runtime during apply().
+   *
+   * @remarks
+   * Exactly one adapter may be registered per task. The plugin must declare
+   * `--shard-parent-folder` and `--shard-count`, with clean and watch mode disabled.
+   * Heft runs the adapter, validates all shard envelopes and owns the final diagnostic verdict.
+   *
+   * @beta
+   */
+  registerShardCollator(adapter: IShardCollationAdapter): void;
 
   /**
    * Set a a callback which will be called if and after the specified plugin has been applied.
@@ -241,6 +255,7 @@ export class HeftTaskSession implements IHeftTaskSession {
   readonly #options: IHeftTaskSessionOptions;
   #parameters: IHeftParameters | undefined;
   #parsedCommandLine: IHeftParsedCommandLine;
+  #shardCollationTask: ShardCollationTask | undefined;
 
   /**
    * @internal
@@ -311,6 +326,15 @@ export class HeftTaskSession implements IHeftTaskSession {
       pluginToAccessPackage,
       pluginToAccessName,
       pluginApply
+    );
+  }
+
+  public registerShardCollator(adapter: IShardCollationAdapter): void {
+    this.#shardCollationTask ??= new ShardCollationTask();
+    this.#shardCollationTask.register(
+      this,
+      this.#options.internalHeftSession.heftConfiguration.buildFolderPath,
+      adapter
     );
   }
 }

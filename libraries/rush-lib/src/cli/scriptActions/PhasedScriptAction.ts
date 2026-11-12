@@ -685,13 +685,22 @@ export class PhasedScriptAction extends BaseScriptAction<IPhasedCommandConfig> i
         initialSnapshot
       };
 
+      await measureAsyncFn(`${PERF_PREFIX}:executionManager`, async () => {
+        await hooks.onGraphCreatedAsync.promise(graph, graphContext);
+      });
+      if (await hooks.beforeExecuteGraphAsync.promise(graph, graphContext)) {
+        await graph.closeRunnersAsync();
+        this.sessionAbortController.signal.throwIfAborted();
+        stopwatch.stop();
+        if (!this.#ignoreHooksParameter.value) {
+          this.#doAfterTask();
+        }
+        return;
+      }
+
       const abortPromise: Promise<void> = once(this.sessionAbortController.signal, 'abort').then(async () => {
         terminal.writeLine(`Shutting down Rush...`);
         return await graph.abortCurrentIterationAsync();
-      });
-
-      await measureAsyncFn(`${PERF_PREFIX}:executionManager`, async () => {
-        await hooks.onGraphCreatedAsync.promise(graph, graphContext);
       });
       attachReporterOperationEventSink(graph, this.rushSession, this.actionName, isWatch);
 
