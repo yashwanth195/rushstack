@@ -795,6 +795,7 @@ export class LockFile {
     get dirtyWhenAcquired(): boolean;
     get filePath(): string;
     static getLockFilePath(resourceFolder: string, resourceName: string, pid?: number): string;
+    static getLockFilePaths(resourceFolder: string, resourceName: string, pid?: number): ReadonlyArray<string>;
     get isReleased(): boolean;
     release(deleteFile?: boolean): void;
     static tryAcquire(resourceFolder: string, resourceName: string): LockFile | undefined;
@@ -968,6 +969,7 @@ export class Text {
     static padStart(s: string, minimumLength: number, paddingCharacter?: string): string;
     static readLinesFromIterable(iterable: Iterable<string | Buffer | null>, options?: IReadLinesFromIterableOptions): Generator<string>;
     static readLinesFromIterableAsync(iterable: AsyncIterable<string | Buffer>, options?: IReadLinesFromIterableOptions): AsyncGenerator<string>;
+    // @deprecated
     static replaceAll(input: string, searchValue: string, replaceValue: string): string;
     static reverse(s: string): string;
     static splitByNewLines(s: undefined): undefined;

@@ -20,7 +20,9 @@ import { Utilities } from '../../utilities/Utilities';
 import type { IConfigurationEnvironment } from '../base/BasePackageManagerOptionsConfiguration';
 import type { PnpmOptionsConfiguration } from '../pnpm/PnpmOptionsConfiguration';
 import { PnpmWorkspaceFile } from '../pnpm/PnpmWorkspaceFile';
+import { getEffectivePnpmOptions } from '../pnpm/EffectivePnpmOptions';
 import { merge } from '../../utilities/objectUtilities';
+import { getNpmrcEnvironmentVariables } from '../../utilities/npmrcUtilities';
 import type { Subspace } from '../../api/Subspace';
 import { RushConstants } from '../RushConstants';
 
@@ -155,7 +157,7 @@ export class InstallHelpers {
       // NOTE: the pnpm setting is `trustPolicyIgnoreAfter`, but the rush pnpm setting is `trustPolicyIgnoreAfterMinutes`
       trustPolicyIgnoreAfterMinutes: trustPolicyIgnoreAfter,
       unsupportedPackageJsonSettings
-    } = subspace.getPnpmOptions() || rushConfiguration.pnpmOptions;
+    } = getEffectivePnpmOptions(subspace, rushConfiguration).pnpmOptions;
 
     const pnpmVersion: string = rushConfiguration.packageManagerToolVersion;
     const isPnpm11: boolean = semver.gte(pnpmVersion, '11.0.0');
@@ -339,6 +341,16 @@ export class InstallHelpers {
       workspaceFile.trustPolicy = trustPolicy;
       workspaceFile.trustPolicyExclude = trustPolicyExclude;
       workspaceFile.trustPolicyIgnoreAfter = trustPolicyIgnoreAfter;
+
+      if (rushConfiguration.subspacesFeatureEnabled) {
+        // When subspaces are enabled, Rush generates a "global pnpmfile" that rewrites
+        // cross-subspace "workspace:*" dependency specifiers to "link:" specifiers. For pnpm 10 and
+        // earlier it is wired up via a "global-pnpmfile=" line in the generated .npmrc (see
+        // BaseInstallManager), but pnpm 11+ only reads auth/registry settings from .npmrc, so that
+        // line is silently ignored and installation fails with ERR_PNPM_WORKSPACE_PKG_NOT_FOUND.
+        // For pnpm 11+, emit the path via the generated pnpm-workspace.yaml instead.
+        workspaceFile.globalPnpmfile = `${subspace.getSubspaceTempFolderPath()}/${RushConstants.pnpmfileGlobalFilename}`;
+      }
     } else {
       // For older pnpm, these settings live in the "pnpm" field of package.json.
       packageJsonPnpmSection = {
@@ -367,10 +379,41 @@ export class InstallHelpers {
     };
   }
 
+  /**
+   * Returns true if Rush (rather than PNPM) should expand the `${VAR}` tokens that appear in
+   * credentials and registry URLs in the `.npmrc` file. See the
+   * `provideNpmrcCredentialsViaEnvironment` experiment.
+   */
+  public static shouldProvideNpmrcCredentialsViaEnvironment(rushConfiguration: RushConfiguration): boolean {
+    const {
+      isPnpm,
+      packageManagerToolVersion,
+      experimentsConfiguration: {
+        configuration: { provideNpmrcCredentialsViaEnvironment = false }
+      }
+    } = rushConfiguration;
+    if (!isPnpm || !provideNpmrcCredentialsViaEnvironment) {
+      return false;
+    }
+
+    // PNPM 11.6.0 added URL-scoped `pnpm_config_//...` credentials, which let CI bind a token to
+    // a registry without deriving that trusted binding from repository-controlled configuration.
+    // Keep this compatibility workaround only for patched versions that lack that native path.
+    return (
+      (semver.gte(packageManagerToolVersion, '10.34.2') && semver.lt(packageManagerToolVersion, '11.0.0')) ||
+      (semver.gte(packageManagerToolVersion, '11.5.3') && semver.lt(packageManagerToolVersion, '11.6.0'))
+    );
+  }
+
+  /**
+   * Returns the environment that the package manager should be invoked with, including any
+   * credentials that were moved out of the generated `.npmrc` file in `npmrcFolder`.
+   */
   public static getPackageManagerEnvironment(
     rushConfiguration: RushConfiguration,
     options: {
       debug?: boolean;
+      npmrcFolder?: string;
     } = {}
   ): NodeJS.ProcessEnv {
     let configurationEnvironment: IConfigurationEnvironment | undefined = undefined;
@@ -383,7 +426,26 @@ export class InstallHelpers {
       configurationEnvironment = rushConfiguration.yarnOptions?.environmentVariables;
     }
 
-    return _mergeEnvironmentVariables(process.env, configurationEnvironment, options);
+    const packageManagerEnvironment: NodeJS.ProcessEnv = _mergeEnvironmentVariables(
+      process.env,
+      configurationEnvironment,
+      options
+    );
+
+    const { npmrcFolder } = options;
+    const shouldProvideCredentials: boolean =
+      InstallHelpers.shouldProvideNpmrcCredentialsViaEnvironment(rushConfiguration);
+    if (npmrcFolder !== undefined && shouldProvideCredentials) {
+      Object.assign(
+        packageManagerEnvironment,
+        getNpmrcEnvironmentVariables({
+          npmrcFolder,
+          supportEnvVarFallbackSyntax: rushConfiguration.isPnpm
+        })
+      );
+    }
+
+    return packageManagerEnvironment;
   }
 
   /**
@@ -433,66 +495,81 @@ export class InstallHelpers {
 
     logIfConsoleOutputIsNotRestricted(`Acquired lock for ${packageManagerAndVersion}`);
 
-    if (!(await packageManagerMarker.isValidAsync()) || lock.dirtyWhenAcquired) {
-      logIfConsoleOutputIsNotRestricted(
-        Colorize.bold(`Installing ${packageManager} version ${packageManagerVersion}\n`)
-      );
-
-      // note that this will remove the last-install flag from the directory
-      await Utilities.installPackageInDirectoryAsync({
-        directory: packageManagerToolFolder,
-        packageName: packageManager,
-        version: rushConfiguration.packageManagerToolVersion,
-        tempPackageTitle: `${packageManager}-local-install`,
-        maxInstallAttempts: maxInstallAttempts,
-        // This is using a local configuration to install a package in a shared global location.
-        // Generally that's a bad practice, but in this case if we can successfully install
-        // the package at all, we can reasonably assume it's good for all the repositories.
-        // In particular, we'll assume that two different NPM registries cannot have two
-        // different implementations of the same version of the same package.
-        // This was needed for: https://github.com/microsoft/rushstack/issues/691
-        commonRushConfigFolder: rushConfiguration.commonRushConfigFolder,
-        // Only filter npm-incompatible properties when the repo uses pnpm or yarn.
-        // If the repo uses npm, the .npmrc is already configured for npm, so don't filter.
-        filterNpmIncompatibleProperties: rushConfiguration.packageManager !== 'npm'
-      });
-
-      logIfConsoleOutputIsNotRestricted(
-        `Successfully installed ${packageManager} version ${packageManagerVersion}`
-      );
-    } else {
-      logIfConsoleOutputIsNotRestricted(
-        `Found ${packageManager} version ${packageManagerVersion} in ${packageManagerToolFolder}`
-      );
-    }
-
-    await packageManagerMarker.createAsync();
-
-    // Example: "C:\MyRepo\common\temp"
-    FileSystem.ensureFolder(rushConfiguration.commonTempFolder);
-
-    // Example: "C:\MyRepo\common\temp\pnpm-local"
-    const localPackageManagerToolFolder: string = `${rushConfiguration.commonTempFolder}/${packageManager}-local`;
-
-    logIfConsoleOutputIsNotRestricted(`\nSymlinking "${localPackageManagerToolFolder}"`);
-    logIfConsoleOutputIsNotRestricted(`  --> "${packageManagerToolFolder}"`);
-
-    // We cannot use FileSystem.exists() to test the existence of a symlink, because it will
-    // return false for broken symlinks.  There is no way to test without catching an exception.
     try {
-      await FileSystem.deleteFolderAsync(localPackageManagerToolFolder);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-        throw error;
+      // Only the flag decides whether to reinstall. A stale lock (lock.dirtyWhenAcquired) only means that
+      // some process exited while it held the lock. An install deletes the flag before it changes the
+      // folder, so an interrupted install leaves no flag. Reinstalling because of a stale lock alone would
+      // empty a shared folder that other processes may be running the package manager from.
+      if (!(await packageManagerMarker.isValidAsync())) {
+        logIfConsoleOutputIsNotRestricted(
+          Colorize.bold(`Installing ${packageManager} version ${packageManagerVersion}\n`)
+        );
+
+        // Delete the flag first, so that an interrupted install can't leave it next to a partly
+        // deleted or partly installed folder.
+        await packageManagerMarker.clearAsync();
+
+        await Utilities.installPackageInDirectoryAsync({
+          directory: packageManagerToolFolder,
+          packageName: packageManager,
+          version: rushConfiguration.packageManagerToolVersion,
+          tempPackageTitle: `${packageManager}-local-install`,
+          maxInstallAttempts: maxInstallAttempts,
+          // This is using a local configuration to install a package in a shared global location.
+          // Generally that's a bad practice, but in this case if we can successfully install
+          // the package at all, we can reasonably assume it's good for all the repositories.
+          // In particular, we'll assume that two different NPM registries cannot have two
+          // different implementations of the same version of the same package.
+          // This was needed for: https://github.com/microsoft/rushstack/issues/691
+          commonRushConfigFolder: rushConfiguration.commonRushConfigFolder,
+          // Only filter npm-incompatible properties when the repo uses pnpm or yarn.
+          // If the repo uses npm, the .npmrc is already configured for npm, so don't filter.
+          filterNpmIncompatibleProperties: rushConfiguration.packageManager !== 'npm'
+        });
+
+        logIfConsoleOutputIsNotRestricted(
+          `Successfully installed ${packageManager} version ${packageManagerVersion}`
+        );
+
+        // Write the flag only after an install. Rewriting a valid flag on every call would let a process
+        // that is killed during the write leave an empty flag, and the next caller would reinstall.
+        await packageManagerMarker.createAsync();
+      } else {
+        logIfConsoleOutputIsNotRestricted(
+          `Found ${packageManager} version ${packageManagerVersion} in ${packageManagerToolFolder}`
+        );
       }
+
+      // Example: "C:\MyRepo\common\temp"
+      FileSystem.ensureFolder(rushConfiguration.commonTempFolder);
+
+      // Example: "C:\MyRepo\common\temp\pnpm-local"
+      const localPackageManagerToolFolder: string = `${rushConfiguration.commonTempFolder}/${packageManager}-local`;
+
+      logIfConsoleOutputIsNotRestricted(`\nSymlinking "${localPackageManagerToolFolder}"`);
+      logIfConsoleOutputIsNotRestricted(`  --> "${packageManagerToolFolder}"`);
+
+      // We cannot use FileSystem.exists() to test the existence of a symlink, because it will
+      // return false for broken symlinks.  There is no way to test without catching an exception.
+      try {
+        await FileSystem.deleteFolderAsync(localPackageManagerToolFolder);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+          throw error;
+        }
+      }
+
+      await FileSystem.createSymbolicLinkJunctionAsync({
+        linkTargetPath: packageManagerToolFolder,
+        newLinkPath: localPackageManagerToolFolder
+      });
+    } finally {
+      // A long-lived process such as the Rush daemon calls this again after a failed install.
+      // LockFile keeps an in-process record of every held lock, so a lock that is never released
+      // makes that later call wait forever. A failed install deletes the last-install flag before it
+      // changes the tool folder, so the next caller installs again.
+      lock.release();
     }
-
-    await FileSystem.createSymbolicLinkJunctionAsync({
-      linkTargetPath: packageManagerToolFolder,
-      newLinkPath: localPackageManagerToolFolder
-    });
-
-    lock.release();
   }
 }
 
@@ -504,7 +581,7 @@ function _mergeEnvironmentVariables(
     debug?: boolean;
   } = {}
 ): NodeJS.ProcessEnv {
-  const packageManagerEnv: NodeJS.ProcessEnv = baseEnv;
+  const packageManagerEnv: NodeJS.ProcessEnv = { ...baseEnv };
 
   if (environmentVariables) {
     // eslint-disable-next-line guard-for-in

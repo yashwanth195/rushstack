@@ -1,10 +1,11 @@
 // Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT license.
 // See LICENSE in the project root for license information.
 
-import { JsonFile, JsonSchema, FileSystem } from '@rushstack/node-core-library';
+import { JsonSchema, FileSystem } from '@rushstack/node-core-library';
 import type { CommandLineParameter } from '@rushstack/ts-command-line';
 
 import { RushConstants } from '../logic/RushConstants';
+import { type JsonFileLoadCache, loadJsonFile } from '../utilities/JsonFileLoadCache';
 import type {
   CommandJson,
   ICommandLineJson,
@@ -233,7 +234,7 @@ export class CommandLineConfiguration {
   /**
    * A map of bulk command names to their corresponding synthetic phase identifiers
    */
-  private readonly _syntheticPhasesByTranslatedBulkCommandName: Map<string, IPhase> = new Map();
+  readonly #syntheticPhasesByTranslatedBulkCommandName: Map<string, IPhase> = new Map();
 
   /**
    * Use CommandLineConfiguration.loadFromFile()
@@ -332,7 +333,7 @@ export class CommandLineConfiguration {
       const safePhases: Set<IPhase> = new Set();
       const cycleDetector: Set<IPhase> = new Set();
       for (const phase of this.phases.values()) {
-        this._checkForPhaseSelfCycles(phase, cycleDetector, safePhases);
+        this.#checkForPhaseSelfCycles(phase, cycleDetector, safePhases);
       }
     }
 
@@ -445,7 +446,7 @@ export class CommandLineConfiguration {
 
           case RushConstants.bulkCommandKind: {
             // Translate the bulk command into a phased command
-            normalizedCommand = this._translateBulkCommandToPhasedCommand(command);
+            normalizedCommand = this.#translateBulkCommandToPhasedCommand(command);
             break;
           }
         }
@@ -480,7 +481,7 @@ export class CommandLineConfiguration {
       let buildCommand: Command | undefined = this.commands.get(RushConstants.buildCommandName);
       if (!buildCommand) {
         // If the build command was not specified in the config file, add the default build command
-        buildCommand = this._translateBulkCommandToPhasedCommand(DEFAULT_BUILD_COMMAND_JSON);
+        buildCommand = this.#translateBulkCommandToPhasedCommand(DEFAULT_BUILD_COMMAND_JSON);
         buildCommand.disableBuildCache = DEFAULT_BUILD_COMMAND_JSON.disableBuildCache;
         buildCommandPhases = buildCommand.phases;
         buildCommandOriginalPhases = buildCommand.originalPhases;
@@ -545,7 +546,7 @@ export class CommandLineConfiguration {
         if (normalizedParameter.associatedCommands) {
           for (const associatedCommandName of normalizedParameter.associatedCommands) {
             const syntheticPhase: IPhase | undefined =
-              this._syntheticPhasesByTranslatedBulkCommandName.get(associatedCommandName);
+              this.#syntheticPhasesByTranslatedBulkCommandName.get(associatedCommandName);
             if (syntheticPhase) {
               // If this parameter was associated with a bulk command, include the association
               // with the synthetic phase
@@ -598,7 +599,7 @@ export class CommandLineConfiguration {
    * @param phasesInPath The current path from the start node to `phase`
    * @param cycleFreePhases Phases that have already been fully walked and confirmed to not be in any cycles
    */
-  private _checkForPhaseSelfCycles(
+  #checkForPhaseSelfCycles(
     phase: IPhase,
     phasesInPath: Set<IPhase>,
     cycleFreePhases: Set<IPhase>
@@ -619,7 +620,7 @@ export class CommandLineConfiguration {
         );
       } else {
         phasesInPath.add(dependency);
-        this._checkForPhaseSelfCycles(dependency, phasesInPath, cycleFreePhases);
+        this.#checkForPhaseSelfCycles(dependency, phasesInPath, cycleFreePhases);
         phasesInPath.delete(dependency);
       }
     }
@@ -635,11 +636,19 @@ export class CommandLineConfiguration {
    * use {@see loadFromFileOrDefault} instead.
    *
    * If the file does not exist, this function returns `undefined`
+   *
+   * @param jsonFileLoadCache - The cache of a long-lived engine host, which parses the file again only if it changed.
    */
-  public static tryLoadFromFile(jsonFilePath: string): CommandLineConfiguration | undefined {
+  public static tryLoadFromFile(
+    jsonFilePath: string,
+    jsonFileLoadCache?: JsonFileLoadCache
+  ): CommandLineConfiguration | undefined {
     let commandLineJson: ICommandLineJson | undefined;
     try {
-      commandLineJson = JsonFile.loadAndValidate(jsonFilePath, _jsonSchema);
+      commandLineJson = loadJsonFile(jsonFileLoadCache, jsonFilePath, (json) => {
+        _jsonSchema.validateObject(json, jsonFilePath);
+        return json as ICommandLineJson;
+      });
     } catch (e) {
       if (!FileSystem.isNotExistError(e as Error)) {
         throw e;
@@ -667,37 +676,23 @@ export class CommandLineConfiguration {
    * Loads the configuration from the specified file and applies any omitted default build
    * settings.  If the file does not exist, then a default instance is returned.
    * If the file contains errors, then an exception is thrown.
+   *
+   * @param jsonFileLoadCache - The cache of a long-lived engine host, which parses the file again only if it changed.
    */
   public static loadFromFileOrDefault(
     jsonFilePath?: string,
-    doNotIncludeDefaultBuildCommands?: boolean
+    doNotIncludeDefaultBuildCommands?: boolean,
+    jsonFileLoadCache?: JsonFileLoadCache
   ): CommandLineConfiguration {
     let commandLineJson: ICommandLineJson | undefined = undefined;
     if (jsonFilePath) {
       try {
-        commandLineJson = JsonFile.load(jsonFilePath);
+        commandLineJson = loadJsonFile(jsonFileLoadCache, jsonFilePath, (json) =>
+          _prepareRepoCommandLineJson(json as ICommandLineJson, jsonFilePath)
+        );
       } catch (e) {
         if (!FileSystem.isNotExistError(e as Error)) {
           throw e;
-        }
-      }
-
-      // merge commands specified in command-line.json and default (re)build settings
-      // Ensure both build commands are included and preserve any other commands specified
-      if (commandLineJson?.commands) {
-        _applyBuildCommandDefaults(commandLineJson);
-
-        _jsonSchema.validateObject(commandLineJson, jsonFilePath);
-
-        // Validate that globalPlugin commands are not used in the repo's command-line.json
-        for (const { commandKind, name } of commandLineJson.commands) {
-          if (commandKind === RushConstants.globalPluginCommandKind) {
-            throw new Error(
-              `${RushConstants.commandLineFilename} defines a command "${name}" using ` +
-                `the command kind "${RushConstants.globalPluginCommandKind}". This command kind can only ` +
-                `be used in command-line.json files provided by Rush plugins.`
-            );
-          }
         }
       }
     }
@@ -709,7 +704,7 @@ export class CommandLineConfiguration {
     (this.additionalPathFolders as string[]).unshift(pathFolder);
   }
 
-  private _translateBulkCommandToPhasedCommand(command: IBulkCommandJson): IPhasedCommandConfig {
+  #translateBulkCommandToPhasedCommand(command: IBulkCommandJson): IPhasedCommandConfig {
     const phaseName: string = command.name;
     const phase: IPhase = {
       name: phaseName,
@@ -730,7 +725,7 @@ export class CommandLineConfiguration {
     }
 
     this.phases.set(phaseName, phase);
-    this._syntheticPhasesByTranslatedBulkCommandName.set(command.name, phase);
+    this.#syntheticPhasesByTranslatedBulkCommandName.set(command.name, phase);
 
     const phases: Set<IPhase> = new Set([phase]);
 
@@ -749,6 +744,31 @@ export class CommandLineConfiguration {
 
     return translatedCommand;
   }
+}
+
+function _prepareRepoCommandLineJson(
+  commandLineJson: ICommandLineJson,
+  jsonFilePath: string
+): ICommandLineJson {
+  // merge commands specified in command-line.json and default (re)build settings
+  // Ensure both build commands are included and preserve any other commands specified
+  if (commandLineJson?.commands) {
+    _applyBuildCommandDefaults(commandLineJson);
+
+    _jsonSchema.validateObject(commandLineJson, jsonFilePath);
+
+    // Validate that globalPlugin commands are not used in the repo's command-line.json
+    for (const { commandKind, name } of commandLineJson.commands) {
+      if (commandKind === RushConstants.globalPluginCommandKind) {
+        throw new Error(
+          `${RushConstants.commandLineFilename} defines a command "${name}" using ` +
+            `the command kind "${RushConstants.globalPluginCommandKind}". This command kind can only ` +
+            `be used in command-line.json files provided by Rush plugins.`
+        );
+      }
+    }
+  }
+  return commandLineJson;
 }
 
 function _applyBuildCommandDefaults(commandLineJson: ICommandLineJson): void {

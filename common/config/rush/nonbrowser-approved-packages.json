@@ -84,7 +84,7 @@
     },
     {
       "name": "@microsoft/rush",
-      "allowedCategories": [ "tests" ]
+      "allowedCategories": [ "libraries", "tests" ]
     },
     {
       "name": "@microsoft/rush-lib",
@@ -972,6 +972,10 @@
     },
     {
       "name": "resolve",
+      "allowedCategories": [ "libraries" ]
+    },
+    {
+      "name": "resolve-pkg-maps",
       "allowedCategories": [ "libraries" ]
     },
     {
